@@ -1,24 +1,18 @@
-run started 2026-10-27T17:29:08.970Z
-gemini-flash-lite-latest: 429, waiting 30s
-gemini-2.5-flash: daily quota exhausted, falling back
-gemini-flash-latest: 503, waiting 4s
-gemini-flash-latest: 503, waiting 8s
-gemini-flash-latest: daily quota exhausted, falling back
-ASIANPAINT: 4 calls, ledger none, thesis ok in 96s ledger: Gemini gemini-2.0-flash 404: {
-  "error": {
-    "code": 404,
-    "message": "This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the l | thesis: undefined
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 503, waiting 8s
-gemini-flash-lite-latest: 503, waiting 4s
-KAYNES: 4 calls, ledger none, thesis ok in 161s ledger: undefined | thesis: undefined
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 503, waiting 8s
-gemini-flash-lite-latest: 503, waiting 12s
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 429, waiting 30s
-gemini-flash-lite-latest: 503, waiting 8s
-DMART: 3 calls, ledger none, thesis ok in 114s ledger: undefined | thesis: undefined
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 503, waiting 4s
+run started 2026-10-27T17:43:29.293Z
+gemini-3.8-flash: 503, waiting 4s
+gemini-3.8-flash: daily quota exhausted, falling back
+gemini-3.7-flash: 503, waiting 4s
+gemini-3.7-flash: 503, waiting 8s
+gemini-3.7-flash: daily quota exhausted, falling back
+gemini-3.6-flash: 503, waiting 4s
+ASIANPAINT: 4 calls, ledger 6 rows, thesis ok in 139s 
+gemini-3.6-flash: 503, waiting 4s
+gemini-3.6-flash: 503, waiting 8s
+gemini-3.6-flash: 503, waiting 12s
+KAYNES: 4 calls, ledger 5 rows, thesis ok in 61s 
+gemini-3.6-flash: 503, waiting 4s
+gemini-3.6-flash: 503, waiting 8s
+gemini-3.6-flash: 503, waiting 12s
+gemini-3.6-flash: 503, waiting 4s
+gemini-3.6-flash: 503, waiting 8s
+DMART: 4 calls, ledger 5 rows, thesis ok in 82s 
