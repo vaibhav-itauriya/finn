@@ -1,9 +1,9 @@
 screener: 18/18
 prices: 18/18
 filings: 255 (229 placed by rules)
-[8s] results: 8 filings
-[10s] second opinion: 38 filings
-[20s] management: 7 filings
+[6s] results: 8 filings
+[6s] second opinion: 38 filings
+[8s] management: 7 filings
 gemini-3.8-flash: 429, waiting 4s
 gemini-3.8-flash: 429, waiting 4s
 gemini-3.8-flash: 429, waiting 8s
@@ -15,20 +15,20 @@ gemini-3.7-flash: 429, waiting 4s
 gemini-3.7-flash: 429, waiting 8s
 gemini-3.7-flash: 429, waiting 8s
 gemini-3.7-flash: 429, waiting 12s
+gemini-3.6-flash: 429, waiting 4s
 gemini-3.7-flash: 429, waiting 12s
 gemini-3.6-flash: 429, waiting 4s
-gemini-3.6-flash: 429, waiting 4s
 gemini-3.6-flash: 429, waiting 8s
 gemini-3.6-flash: 429, waiting 8s
 gemini-3.6-flash: 429, waiting 12s
-gemini-3.5-flash: 429, waiting 4s
 gemini-3.6-flash: 429, waiting 12s
 gemini-3.5-flash: 429, waiting 4s
+gemini-3.5-flash: 429, waiting 4s
 gemini-3.5-flash: 429, waiting 8s
 gemini-3.5-flash: 429, waiting 8s
+gemini-3.5-flash: 429, waiting 12s
 gemini-3.5-flash: 429, waiting 12s
 gemini-3-flash-preview: 429, waiting 4s
-gemini-3.5-flash: 429, waiting 12s
 gemini-3-flash-preview: 429, waiting 4s
 gemini-3-flash-preview: 429, waiting 8s
 gemini-3-flash-preview: 429, waiting 8s
@@ -39,29 +39,26 @@ gemini-flash-latest: 429, waiting 4s
 gemini-flash-latest: 429, waiting 8s
 gemini-flash-latest: 429, waiting 8s
 gemini-flash-latest: 429, waiting 12s
+gemini-flash-latest: 429, waiting 12s
+gemini-3.8-flash: 429, waiting 4s
+gemini-3.8-flash: 429, waiting 8s
+gemini-3.8-flash: 429, waiting 12s
+gemini-3.7-flash: 429, waiting 4s
+gemini-3.7-flash: 429, waiting 8s
+gemini-3.7-flash: 429, waiting 12s
+gemini-3.6-flash: 429, waiting 4s
+gemini-3.6-flash: 429, waiting 8s
+gemini-3.6-flash: 429, waiting 12s
+gemini-3.5-flash: 429, waiting 4s
+gemini-3.5-flash: 429, waiting 8s
+gemini-3.5-flash: 429, waiting 12s
+gemini-3-flash-preview: 429, waiting 4s
+gemini-3-flash-preview: 429, waiting 8s
+gemini-3-flash-preview: 429, waiting 12s
+gemini-flash-latest: 429, waiting 4s
+gemini-flash-latest: 429, waiting 8s
 gemini-flash-latest: 429, waiting 12s
 gemini-2.5-flash: daily quota exhausted, falling back
-gemini-2.5-flash: daily quota exhausted, falling back
-gemini-3.8-flash: 429, waiting 4s
-gemini-3.8-flash: 429, waiting 8s
-gemini-2.5-flash: 503, waiting 4s
-gemini-2.5-flash: daily quota exhausted, falling back
-gemini-3.8-flash: 429, waiting 12s
-gemini-3.7-flash: 429, waiting 4s
-gemini-3.7-flash: 429, waiting 8s
-gemini-3.7-flash: 429, waiting 12s
-gemini-3.6-flash: 429, waiting 4s
-gemini-3.6-flash: 429, waiting 8s
-gemini-3.6-flash: 429, waiting 12s
-gemini-3.5-flash: 429, waiting 4s
-gemini-3.5-flash: 429, waiting 8s
-gemini-3.5-flash: 429, waiting 12s
-gemini-3-flash-preview: 429, waiting 4s
-gemini-3-flash-preview: 429, waiting 8s
-gemini-3-flash-preview: 429, waiting 12s
-gemini-flash-latest: 429, waiting 4s
-gemini-flash-latest: 429, waiting 8s
-gemini-flash-latest: 429, waiting 12s
 gemini-3.8-flash: 429, waiting 4s
 gemini-3.8-flash: 429, waiting 8s
 gemini-3.8-flash: 429, waiting 12s
@@ -98,6 +95,6 @@ gemini-3-flash-preview: 429, waiting 12s
 gemini-flash-latest: 429, waiting 4s
 gemini-flash-latest: 429, waiting 8s
 gemini-flash-latest: 429, waiting 12s
-[317s] enrichment done
-done in 317s · 255 filings · rules 229 · llm calls 0 (cache hits 56) · tokens 0/0 · ~$0 · models {}
-telegram: sent 1
+[309s] enrichment done
+done in 309s · 255 filings · rules 229 · llm calls 2 (cache hits 56) · tokens 223/1885 · ~$0.0048 · models {"gemini-2.5-flash":2}
+telegram: nothing new
