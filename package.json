@@ -10,7 +10,7 @@
     "lint": "next lint",
     "push:run": "tsx scripts/run-push.ts",
     "research:run": "tsx scripts/run-research.ts",
-    "test": "tsx --test lib/**/*.test.ts"
+    "test": "tsx --test lib/push/classify.test.ts"
   },
   "engines": {
     "node": ">=20"

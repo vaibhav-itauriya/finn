@@ -11,17 +11,18 @@ import { ResultsTable } from "./ResultsTable";
 interface Props {
   f: Filing;
   related?: Filing[];
+  defaultOpen?: boolean;
   variant: "lead" | "glance";
   onDone: (f: Filing) => void;
   onMute: (f: Filing) => void;
 }
 
 /** Swipe right = done, swipe left = mute this kind of filing for this company. Buttons do the same. */
-export function FilingItem({ f, related = [], variant, onDone, onMute }: Props) {
+export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMute }: Props) {
   const x = useMotionValue(0);
   const doneOpacity = useTransform(x, [20, 90], [0, 1]);
   const muteOpacity = useTransform(x, [-90, -20], [1, 0]);
-  const [open, setOpen] = useState(variant === "lead");
+  const [open, setOpen] = useState(defaultOpen ?? variant === "lead");
   const [why, setWhy] = useState(false);
   const [showRel, setShowRel] = useState(false);
 

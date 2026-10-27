@@ -132,9 +132,9 @@ export function Today({ digest }: { digest: Digest }) {
         </h2>
         <ul className="divide-y divide-rule border-y border-rule">
           <AnimatePresence initial={false}>
-            {lead.map((b) => (
+            {lead.map((b, i) => (
               <motion.div key={b.key} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}>
-                <FilingItem f={b.lead} related={b.related} variant="lead" onDone={(x) => clear(x.id, x.ticker)} onMute={mute} />
+                <FilingItem f={b.lead} related={b.related} variant="lead" defaultOpen={i < 3} onDone={(x) => clear(x.id, x.ticker)} onMute={mute} />
               </motion.div>
             ))}
           </AnimatePresence>
