@@ -31,10 +31,12 @@ function buildChains(): Record<LLMTier, string[]> {
   const flash = av.filter((n) => !/lite/.test(n));
   const uniq = (xs: (string | undefined)[]) => [...new Set(xs.filter((x): x is string => Boolean(x)))];
   const bulk = uniq([process.env.FINN_MODEL_BULK, ...lite.slice(0, 2), "gemini-flash-lite-latest", "gemini-2.5-flash-lite"]);
-  const reason = uniq([process.env.FINN_MODEL_REASON, ...flash.slice(0, 2), "gemini-flash-latest", "gemini-2.5-flash"]);
+  const reason = uniq([process.env.FINN_MODEL_REASON, ...flash.slice(0, 5), "gemini-flash-latest", "gemini-2.5-flash"]);
+  // Open-weights Gemma on the same API has a far larger free allowance: last resort for text work.
+  const open = ["gemma-4-31b-it"];
   return {
-    bulk: uniq([...bulk, ...reason]),
-    reason: uniq([...reason, ...bulk]),
+    bulk: uniq([...bulk, ...open, ...reason]),
+    reason: uniq([...reason, ...bulk, ...open]),
     search: uniq([process.env.FINN_MODEL_SEARCH, ...reason]),
   };
 }
@@ -101,16 +103,18 @@ export function hasLLM() {
 async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse & { tin: number; tout: number }> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
+  const gemma = model.startsWith("gemma");
+  const parts = gemma && req.system ? [{ text: req.system }, ...req.parts] : req.parts;
   const body: Record<string, unknown> = {
-    contents: [{ role: "user", parts: req.parts }],
+    contents: [{ role: "user", parts: gemma && req.json ? [...parts, { text: "Reply with JSON only." }] : parts }],
     generationConfig: {
       temperature: req.temperature ?? 0.1,
       maxOutputTokens: req.maxOutputTokens ?? 4096,
-      ...(req.json && req.tier !== "search" ? { responseMimeType: "application/json" } : {}),
-      ...(req.schema && req.tier !== "search" ? { responseSchema: req.schema } : {}),
+      ...(req.json && req.tier !== "search" && !gemma ? { responseMimeType: "application/json" } : {}),
+      ...(req.schema && req.tier !== "search" && !gemma ? { responseSchema: req.schema } : {}),
     },
   };
-  if (req.system) body.systemInstruction = { parts: [{ text: req.system }] };
+  if (req.system && !gemma) body.systemInstruction = { parts: [{ text: req.system }] };
   if (req.tier === "search") body.tools = [{ google_search: {} }];
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
