@@ -226,9 +226,16 @@ export async function enrichResults(pdfUrl: string, sc?: ScreenerCompany | null)
 }
 
 /** Last resort when the filing can't be parsed: Screener's table, clearly labelled. */
-export function resultsFromScreener(sc: ScreenerCompany): ResultsCard | null {
+export function resultsFromScreener(sc: ScreenerCompany, filedAt?: string): ResultsCard | null {
   const n = sc.quarters.cols.length;
   if (n < 5) return null;
+  // Only if Screener's latest quarter is the one this filing is about (filed within ~75 days of quarter end).
+  if (filedAt) {
+    const [mon, yr] = sc.quarters.cols[n - 1].split(" ");
+    const qEnd = new Date(Date.UTC(Number(yr), MONTHS.indexOf(mon) + 1, 0));
+    const lag = (new Date(filedAt).getTime() - qEnd.getTime()) / 86400e3;
+    if (lag < 0 || lag > 75) return null;
+  }
   const pick = (vals: (number | null)[]): Triplet => ({ cur: vals[n - 1], prevQ: vals[n - 2], prevY: vals[n - 5] });
   const base = {
     period: fiscalLabel(sc.quarters.cols[n - 1]),

@@ -153,7 +153,7 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
       const sc = screener.get(f.ticker);
       if (timeLeft() < 60e3) {
         skipped++;
-        if (sc) f.enrichment = resultsFromScreener(sc) ?? undefined;
+        if (sc) f.enrichment = resultsFromScreener(sc, f.ts) ?? undefined;
         return;
       }
       try {
@@ -163,18 +163,34 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
         errors.push(`results ${f.ticker}: ${(e as Error).message.slice(0, 160)}`);
       }
       if (!f.enrichment && sc) {
-        const fb = resultsFromScreener(sc);
+        const fb = resultsFromScreener(sc, f.ts);
         if (fb) f.enrichment = fb;
       }
     }), 5 * 60e3);
     // Any results card still missing (time ran out): use Screener's table, labelled as such.
     for (const f of primary.values()) {
       const sc = screener.get(f.ticker);
-      if (!f.enrichment && sc) f.enrichment = resultsFromScreener(sc) ?? undefined;
+      if (!f.enrichment && sc) f.enrichment = resultsFromScreener(sc, f.ts) ?? undefined;
     }
 
+    // Second opinion: every filing the rules couldn't place, plus recent non-routine ones.
+    const skip = new Set(["results", "earnings_call", "investor_meetings", "dividend", "management_change"]);
+    const review = filings
+      .filter((f) => !f.enrichment)
+      .filter((f) => f.classifiedBy === "llm" || (f.tier !== "routine" && !skip.has(f.category) && ageDays(f) <= 10))
+      .slice(0, 60);
+    stage(`second opinion: ${review.length} filings`);
+    await within(pool(review, 3, async (f) => {
+      if (timeLeft() < 45e3) return void skipped++;
+      try {
+        const o = await secondOpinion(f);
+        if (o) fuse(f, o);
+      } catch (e) {
+        errors.push(`opinion ${f.ticker}: ${(e as Error).message.slice(0, 120)}`);
+      }
+    }), 20e3);
     // Management: find out who. Senior roles go up, secretarial changes go down.
-    const mgmt = filings.filter((f) => f.category === "management_change" && f.score >= 45 && ageDays(f) <= 21);
+    const mgmt = filings.filter((f) => f.category === "management_change" && f.score >= 45 && ageDays(f) <= 21 && f.enrichment?.kind !== "management");
     stage(`management: ${mgmt.length} filings`);
     await within(pool(mgmt, 2, async (f) => {
       if (timeLeft() < 60e3) return void skipped++;
@@ -195,22 +211,6 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
       }
     }), 2 * 60e3);
 
-    // Second opinion: every filing the rules couldn't place, plus recent non-routine ones.
-    const skip = new Set(["results", "earnings_call", "investor_meetings", "dividend", "management_change"]);
-    const review = filings
-      .filter((f) => !f.enrichment)
-      .filter((f) => f.classifiedBy === "llm" || (f.tier !== "routine" && !skip.has(f.category) && ageDays(f) <= 10))
-      .slice(0, 60);
-    stage(`second opinion: ${review.length} filings`);
-    await within(pool(review, 3, async (f) => {
-      if (timeLeft() < 45e3) return void skipped++;
-      try {
-        const o = await secondOpinion(f);
-        if (o) fuse(f, o);
-      } catch (e) {
-        errors.push(`opinion ${f.ticker}: ${(e as Error).message.slice(0, 120)}`);
-      }
-    }), 20e3);
     stage(`enrichment done${skipped ? `, ${skipped} deferred to next run (time budget)` : ""}`);
   } else {
     errors.push("GEMINI_API_KEY not set: skipped enrichment");

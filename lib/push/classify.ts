@@ -14,6 +14,8 @@ interface Rule {
   category: Category;
   score: number;
   reason: string;
+  /** Match only exchange category/sub-category/subject, not the company's free-text gist (gists mention "results" loosely). */
+  subjectOnly?: boolean;
   /** Optional refinement on the matched text (e.g. bump KMP changes, demote secretaries). */
   adjust?: (text: string) => { score: number; reason?: string } | null;
 }
@@ -26,7 +28,8 @@ const RULES: Rule[] = [
   // ---- routine paperwork first, so "Board Meeting Intimation for results" doesn't look like results
   { re: /trading window/i, category: "unclassified", score: 3, reason: "Trading-window closure is routine compliance" },
   { re: /(74\s*\(5\)|depositories and participants|reg(ulation)?\.?\s*74)/i, category: "unclassified", score: 2, reason: "Depository compliance certificate" },
-  { re: /(newspaper publication|copy of newspaper|publication of (financial )?results|advertisement)/i, category: "results", score: 8, reason: "Newspaper ad of results already filed" },
+  { re: /(newspaper (publication|clipping)|copy of newspaper|publication of (financial )?results|advertisement)/i, category: "unclassified", score: 8, reason: "Newspaper copy of something already filed", adjust: (t) => (/result/i.test(t) ? { score: 8, reason: "Newspaper ad of results already filed" } : null) },
+  { re: /listing of (equity )?shares|listing (and|&) trading|commencement of trading/i, category: "fund_raise", score: 80, reason: "Listing of a subsidiary or new shares", subjectOnly: true },
   { re: /(allotment of (esop|esos|esps|equity shares under esop)|esop|employee stock option|grant of (stock )?options|restricted stock unit|\brsus?\b|stock appreciation rights)/i, category: "unclassified", score: 6, reason: "Employee stock options, tiny dilution" },
   { re: /(production volume|sales volume|business update|operational update|operational performance|production and off-?take|e-?auction data|monthly (sales|update)|vehicle sales|auto sales|provisional (production|business))/i, category: "press_release", score: 42, reason: "Monthly operating data: a read on the quarter before results" },
   { re: /(loss of share certificate|duplicate share certificate|issue of duplicate)/i, category: "unclassified", score: 2, reason: "Investor-servicing paperwork" },
@@ -44,7 +47,7 @@ const RULES: Rule[] = [
 
   // ---- results
   { re: /board meeting intimation|intimation of board meeting|prior intimation/i, category: "results", score: 20, reason: "Date set for a board meeting", adjust: (t) => (/result/i.test(t) ? { score: 28, reason: "Results date announced" } : null) },
-  { re: /(financial results|unaudited.*results|audited.*results|results for the (quarter|year)|outcome of board meeting.*result|integrated filing \(financial\))/i, category: "results", score: 92, reason: "Quarterly results filed" },
+  { re: /(financial results|unaudited.*results|audited.*results|results for the (quarter|year)|outcome of board meeting.*result|integrated filing \(financial\))/i, category: "results", score: 92, reason: "Quarterly results filed", subjectOnly: true },
   { re: /^result\b|\|\s*result\s*\|/i, category: "results", score: 88, reason: "Results category" },
   { re: /outcome of (the )?board meeting.*(financial|result)/i, category: "results", score: 90, reason: "Board approved the quarter's results" },
   { re: /financial statements for the (quarter|half|year)|interim condensed/i, category: "results", score: 50, reason: "Detailed financial statements for the quarter" },
@@ -95,8 +98,9 @@ const RULES: Rule[] = [
 
 export function classifyByRules(fields: { cat: string; sub: string; subject: string; headline: string; critical: boolean }): RuleHit | null {
   const text = `${fields.cat} | ${fields.sub} | ${fields.subject} | ${fields.headline}`.replace(/_/g, " ");
+  const head = `${fields.cat} | ${fields.sub} | ${fields.subject}`.replace(/_/g, " ");
   for (const r of RULES) {
-    if (!r.re.test(text)) continue;
+    if (!r.re.test(r.subjectOnly ? head : text)) continue;
     let score = r.score;
     let reason = r.reason;
     const adj = r.adjust?.(text);
