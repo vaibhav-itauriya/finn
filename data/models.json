@@ -1,0 +1,232 @@
+[
+ {
+  "name": "gemini-2.5-flash",
+  "display": "Gemini 2.5 Flash",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-2.5-pro",
+  "display": "Gemini 2.5 Pro",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-2.5-flash-preview-tts",
+  "display": "Gemini 2.5 Flash Preview TTS",
+  "input": 8192
+ },
+ {
+  "name": "gemini-2.5-pro-preview-tts",
+  "display": "Gemini 2.5 Pro Preview TTS",
+  "input": 8192
+ },
+ {
+  "name": "gemma-4-26b-a4b-it",
+  "display": "Gemma 4 26B A4B IT",
+  "input": 262144
+ },
+ {
+  "name": "gemma-4-31b-it",
+  "display": "Gemma 4 31B IT",
+  "input": 262144
+ },
+ {
+  "name": "gemini-flash-latest",
+  "display": "Gemini Flash Latest",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-flash-lite-latest",
+  "display": "Gemini Flash-Lite Latest",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-pro-latest",
+  "display": "Gemini Pro Latest",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-2.5-flash-lite",
+  "display": "Gemini 2.5 Flash-Lite",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-2.5-flash-image",
+  "display": "Nano Banana",
+  "input": 32768
+ },
+ {
+  "name": "gemini-3-flash-preview",
+  "display": "Gemini 3 Flash Preview",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-3.1-pro-preview",
+  "display": "Gemini 3.1 Pro Preview",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-3.1-pro-preview-customtools",
+  "display": "Gemini 3.1 Pro Preview Custom Tools",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-3.1-flash-lite-preview",
+  "display": "Gemini 3.1 Flash Lite Preview",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-3.1-flash-lite",
+  "display": "Gemini 3.1 Flash Lite",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-3-pro-image-preview",
+  "display": "Nano Banana Pro",
+  "input": 131072
+ },
+ {
+  "name": "gemini-3-pro-image",
+  "display": "Nano Banana Pro",
+  "input": 131072
+ },
+ {
+  "name": "nano-banana-pro-preview",
+  "display": "Nano Banana Pro",
+  "input": 131072
+ },
+ {
+  "name": "gemini-3.1-flash-image-preview",
+  "display": "Nano Banana 2",
+  "input": 65536
+ },
+ {
+  "name": "gemini-3.1-flash-image",
+  "display": "Nano Banana 2",
+  "input": 65536
+ },
+ {
+  "name": "gemini-3.1-flash-lite-image",
+  "display": "Nano Banana 2 Lite",
+  "input": 65536
+ },
+ {
+  "name": "gemini-nano-banana-2.1",
+  "display": "Nano Banana 2.1",
+  "input": 65536
+ },
+ {
+  "name": "gemini-3.5-flash",
+  "display": "Gemini 3.5 Flash",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-3.5-flash-lite",
+  "display": "Gemini 3.5 Flash Lite",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-omni-flash-preview",
+  "display": "Gemini Omni Flash Preview",
+  "input": 131072
+ },
+ {
+  "name": "gemini-omni-1.1-flash",
+  "display": "Gemini Omni 1.1 Flash",
+  "input": 131072
+ },
+ {
+  "name": "gemini-3.5-transcribe",
+  "display": "Gemini 3.5 Transcribe",
+  "input": 98304
+ },
+ {
+  "name": "gemini-3.6-flash",
+  "display": "Gemini 3.6 Flash",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-3.7-flash",
+  "display": "Gemini 3.7 Flash",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-3.8-flash",
+  "display": "Gemini 3.8 Flash",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-4-argon",
+  "display": "Gemini 4 Argon",
+  "input": 1048576
+ },
+ {
+  "name": "lyria-3-clip-preview",
+  "display": "Lyria 3 Clip Preview",
+  "input": 1048576
+ },
+ {
+  "name": "lyria-3-pro-preview",
+  "display": "Lyria 3 Pro Preview",
+  "input": 1048576
+ },
+ {
+  "name": "lyria-3.5",
+  "display": "Lyria 3.5",
+  "input": 1048576
+ },
+ {
+  "name": "gemini-3.1-flash-tts-preview",
+  "display": "Gemini 3.1 Flash TTS Preview",
+  "input": 8192
+ },
+ {
+  "name": "gemini-3.8-flash-tts",
+  "display": "Gemini 3.8 Flash TTS",
+  "input": 8192
+ },
+ {
+  "name": "gemini-3.8-flash-lite-tts",
+  "display": "Gemini 3.8 Flash Lite TTS",
+  "input": 8192
+ },
+ {
+  "name": "gemini-robotics-er-2-preview",
+  "display": "Gemini Robotics-ER 2 Preview",
+  "input": 131072
+ },
+ {
+  "name": "gemini-2.5-computer-use-preview-10-2025",
+  "display": "Gemini 2.5 Computer Use Preview 10-2025",
+  "input": 131072
+ },
+ {
+  "name": "antigravity-preview-05-2026",
+  "display": "Antigravity Agent Preview",
+  "input": 1048576
+ },
+ {
+  "name": "antigravity-preview-09-2026",
+  "display": "Antigravity Agent Preview",
+  "input": 1048576
+ },
+ {
+  "name": "antigravity-preview-latest",
+  "display": "Antigravity Agent Preview Latest",
+  "input": 1048576
+ },
+ {
+  "name": "deep-research-max-preview-04-2026",
+  "display": "Deep Research Max Preview (Apr-21-2026)",
+  "input": 131072
+ },
+ {
+  "name": "deep-research-preview-04-2026",
+  "display": "Deep Research Preview (Apr-21-2026)",
+  "input": 131072
+ },
+ {
+  "name": "deep-research-pro-preview-12-2025",
+  "display": "Deep Research Pro Preview (Dec-12-2025) [Rerouted]",
+  "input": 131072
+ }
+]
