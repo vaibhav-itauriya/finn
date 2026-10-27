@@ -1,4 +1,32 @@
 screener: 18/18
 prices: 18/18
-filings: 253 (201 placed by rules)
-done in 303s · 253 filings · rules 201 · llm calls 16 (cache hits 0) · tokens 117916/12789 · ~$0.0185 · models {"gemini-flash-lite-latest":15,"gemini-2.5-flash":1}
+filings: 255 (229 placed by rules)
+[8s] results: 9 filings
+gemini-2.5-flash: daily quota exhausted, falling back
+gemini-flash-latest: daily quota exhausted, falling back
+[55s] management: 4 filings
+gemini-flash-lite-latest: 503, waiting 4s
+[81s] second opinion: 37 filings
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 503, waiting 8s
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 429, waiting 30s
+gemini-flash-lite-latest: 429, waiting 30s
+gemini-flash-lite-latest: 429, waiting 30s
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 429, waiting 30s
+gemini-flash-lite-latest: 429, waiting 30s
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 503, waiting 4s
+[290s] enrichment done
+done in 290s · 255 filings · rules 229 · llm calls 50 (cache hits 0) · tokens 212634/7571 · ~$0.0243 · models {"gemini-flash-lite-latest":50}
+errors (3):
+  results RELIANCE: Gemini gemini-2.0-flash 404: {
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.0-flash is no longer available. Please update your code 
+  results HDFCBANK: undefined
+  results PERSISTENT: undefined
