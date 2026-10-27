@@ -52,6 +52,7 @@ jobs:
           if [ -n "${{ github.event.inputs.only }}" ]; then ARGS="$ARGS --only ${{ github.event.inputs.only }}"; fi
           npx tsx scripts/run-push.ts $ARGS
       - name: Commit data
+        if: always()
         run: |
           git config user.name "finn-bot"
           git config user.email "finn-bot@users.noreply.github.com"

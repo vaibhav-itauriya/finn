@@ -74,6 +74,13 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
   const prev = await readJSON<Digest | null>(path.join(DATA, "digest.json"), null);
   const errors: string[] = [];
   resetMeter();
+  // Time budget: a scheduled job must always publish something. Enrichment that doesn't fit
+  // is picked up by the next run (every model output is cached as soon as it's produced).
+  const t0 = Date.now();
+  const budgetMs = Number(process.env.FINN_BUDGET_MIN || 13) * 60e3;
+  const timeLeft = () => budgetMs - (Date.now() - t0);
+  let skipped = 0;
+  const stage = (name: string) => log(`[${((Date.now() - t0) / 1000).toFixed(0)}s] ${name}`);
 
   // 1. fetch -----------------------------------------------------------------
   const screener = new Map<string, ScreenerCompany>();
@@ -137,8 +144,14 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
       if (!cur) primary.set(f.ticker, f);
       else if (Math.abs(new Date(cur.ts).getTime() - new Date(f.ts).getTime()) < 2 * 86400e3 && better(f) > better(cur)) primary.set(f.ticker, f);
     }
+    stage(`results: ${primary.size} filings`);
     await pool([...primary.values()], 2, async (f) => {
       const sc = screener.get(f.ticker);
+      if (timeLeft() < 60e3) {
+        skipped++;
+        if (sc) f.enrichment = resultsFromScreener(sc) ?? undefined;
+        return;
+      }
       try {
         const card = await enrichResults(f.pdf!, sc);
         if (card) f.enrichment = card;
@@ -153,7 +166,9 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
 
     // Management: find out who. Senior roles go up, secretarial changes go down.
     const mgmt = filings.filter((f) => f.category === "management_change" && f.score >= 45 && ageDays(f) <= 21);
+    stage(`management: ${mgmt.length} filings`);
     await pool(mgmt, 2, async (f) => {
+      if (timeLeft() < 60e3) return void skipped++;
       try {
         const r = await enrichManagement(f);
         if (!r) return;
@@ -177,7 +192,9 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
       .filter((f) => !f.enrichment)
       .filter((f) => f.classifiedBy === "llm" || (f.tier !== "routine" && !skip.has(f.category) && ageDays(f) <= 10))
       .slice(0, 60);
+    stage(`second opinion: ${review.length} filings`);
     await pool(review, 3, async (f) => {
+      if (timeLeft() < 45e3) return void skipped++;
       try {
         const o = await secondOpinion(f);
         if (o) fuse(f, o);
@@ -185,6 +202,7 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
         errors.push(`opinion ${f.ticker}: ${(e as Error).message.slice(0, 120)}`);
       }
     });
+    stage(`enrichment done${skipped ? `, ${skipped} deferred to next run (time budget)` : ""}`);
   } else {
     errors.push("GEMINI_API_KEY not set: skipped enrichment");
   }

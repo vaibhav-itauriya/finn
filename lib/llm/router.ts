@@ -33,6 +33,8 @@ export interface Meter {
   models: Record<string, number>;
 }
 
+const deadModels = new Set<string>();
+
 export const meter: Meter = { calls: 0, cacheHits: 0, tokensIn: 0, tokensOut: 0, usd: 0, models: {} };
 
 export function resetMeter() {
@@ -81,11 +83,23 @@ async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse &
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   for (let attempt = 0; attempt < 4; attempt++) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify(body),
-    });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 100_000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      clearTimeout(timer);
+      if (attempt === 3) throw e;
+      await sleep(2000);
+      continue;
+    }
+    clearTimeout(timer);
     if (res.status === 429 || res.status === 503) {
       // Free tier rate limit: honour the server's retry hint, else back off.
       const txt = await res.text();
@@ -122,7 +136,7 @@ async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse &
 export async function llm(req: LLMRequest): Promise<LLMResponse> {
   const run = async (): Promise<LLMResponse> => {
     let lastErr: unknown;
-    for (const model of MODELS[req.tier]) {
+    for (const model of MODELS[req.tier].filter((m) => !deadModels.has(m))) {
       try {
         let r = await callGemini(model, req);
         // Never cache a reply we can't parse: retry once, then give up loudly.
@@ -138,6 +152,7 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
       } catch (e) {
         lastErr = e;
         const status = (e as { status?: number }).status;
+        if (status === 404) deadModels.add(model); // retired model: stop trying it this process
         if (status !== 404 && status !== 400 && status !== 422) throw e; // fall through on "model not available" or bad JSON
       }
     }
