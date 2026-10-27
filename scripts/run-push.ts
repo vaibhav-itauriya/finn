@@ -5,6 +5,7 @@ import path from "node:path";
 import { PORTFOLIO } from "../config/portfolio";
 import { runPush } from "../lib/push/pipeline";
 import { notify } from "../lib/push/notify";
+import { setLLMLogger } from "../lib/llm/router";
 
 process.env.FINN_CACHE_WRITE = "1"; // persist LLM extractions into data/cache so the next run is free
 
@@ -17,10 +18,15 @@ async function main() {
   const days = Number(get("--days") || 30);
   const only = get("--only")?.split(",").map((s) => s.trim().toUpperCase());
   const lines: string[] = [];
+  const logFile = path.join(process.cwd(), "data", "last-run.log");
+  await fs.writeFile(logFile, `run started ${new Date().toISOString()}\n`);
   const log = (s: string) => {
     console.log(s);
     lines.push(s);
+    // Written as we go, so even a killed run leaves a trail in the committed data.
+    fs.appendFile(logFile, s + "\n").catch(() => {});
   };
+  setLLMLogger(log);
   const t0 = Date.now();
   const digest = await runPush(structuredClone(PORTFOLIO), { days, tickers: only, log });
   const out = path.join(process.cwd(), "data", "digest.json");
@@ -37,7 +43,8 @@ async function main() {
     log(`telegram failed: ${(err as Error).message}`);
   }
   if (e.errors.length) log(`errors (${e.errors.length}):\n  ` + e.errors.join("\n  "));
-  await fs.writeFile(path.join(process.cwd(), "data", "last-run.log"), lines.join("\n") + "\n");
+  await fs.writeFile(logFile, lines.join("\n") + "\n");
+  process.exit(0); // don't wait on abandoned in-flight calls
 }
 
 main().catch((e) => {

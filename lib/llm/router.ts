@@ -34,6 +34,10 @@ export interface Meter {
 }
 
 const deadModels = new Set<string>();
+let llmLog: (s: string) => void = () => {};
+export function setLLMLogger(fn: (s: string) => void) {
+  llmLog = fn;
+}
 
 export const meter: Meter = { calls: 0, cacheHits: 0, tokensIn: 0, tokensOut: 0, usd: 0, models: {} };
 
@@ -101,10 +105,19 @@ async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse &
     }
     clearTimeout(timer);
     if (res.status === 429 || res.status === 503) {
-      // Free tier rate limit: honour the server's retry hint, else back off.
       const txt = await res.text();
+      // A daily quota won't recover by waiting: give up on this model now and let the router
+      // fall back to the next one (separate quota bucket).
+      if (res.status === 429 && /per ?day|PerDay|daily/i.test(txt)) {
+        llmLog(`${model}: daily quota exhausted, falling back`);
+        throw Object.assign(new Error(`${model} daily quota exhausted`), { status: 429, daily: true });
+      }
+      // Per-minute limit: honour the server's hint, capped, at most 3 times.
       const m = txt.match(/"retryDelay":\s*"(\d+)s"/);
-      await sleep(m ? Number(m[1]) * 1000 + 500 : 4000 * (attempt + 1));
+      const wait = Math.min(30_000, m ? Number(m[1]) * 1000 + 500 : 4000 * (attempt + 1));
+      llmLog(`${model}: ${res.status}, waiting ${Math.round(wait / 1000)}s`);
+      if (attempt >= 2) throw Object.assign(new Error(`${model} rate limited`), { status: 429 });
+      await sleep(wait);
       continue;
     }
     if (!res.ok) {
@@ -152,8 +165,8 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
       } catch (e) {
         lastErr = e;
         const status = (e as { status?: number }).status;
-        if (status === 404) deadModels.add(model); // retired model: stop trying it this process
-        if (status !== 404 && status !== 400 && status !== 422) throw e; // fall through on "model not available" or bad JSON
+        if (status === 404 || (e as { daily?: boolean }).daily) deadModels.add(model); // retired or out of quota for today
+        if (status !== 404 && status !== 400 && status !== 422 && status !== 429) throw e; // otherwise try the next model
       }
     }
     throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));

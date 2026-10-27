@@ -80,6 +80,10 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
   const budgetMs = Number(process.env.FINN_BUDGET_MIN || 13) * 60e3;
   const timeLeft = () => budgetMs - (Date.now() - t0);
   let skipped = 0;
+  // Hard stop: in-flight model calls past the budget are abandoned (their results land in the cache
+  // if they finish before the process exits, and are reused next run).
+  const within = <T,>(p: Promise<T>, reserveMs: number) =>
+    Promise.race([p, new Promise<void>((r) => setTimeout(r, Math.max(0, timeLeft() - reserveMs)))]);
   const stage = (name: string) => log(`[${((Date.now() - t0) / 1000).toFixed(0)}s] ${name}`);
 
   // 1. fetch -----------------------------------------------------------------
@@ -145,7 +149,7 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
       else if (Math.abs(new Date(cur.ts).getTime() - new Date(f.ts).getTime()) < 2 * 86400e3 && better(f) > better(cur)) primary.set(f.ticker, f);
     }
     stage(`results: ${primary.size} filings`);
-    await pool([...primary.values()], 2, async (f) => {
+    await within(pool([...primary.values()], 2, async (f) => {
       const sc = screener.get(f.ticker);
       if (timeLeft() < 60e3) {
         skipped++;
@@ -162,12 +166,17 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
         const fb = resultsFromScreener(sc);
         if (fb) f.enrichment = fb;
       }
-    });
+    }), 5 * 60e3);
+    // Any results card still missing (time ran out): use Screener's table, labelled as such.
+    for (const f of primary.values()) {
+      const sc = screener.get(f.ticker);
+      if (!f.enrichment && sc) f.enrichment = resultsFromScreener(sc) ?? undefined;
+    }
 
     // Management: find out who. Senior roles go up, secretarial changes go down.
     const mgmt = filings.filter((f) => f.category === "management_change" && f.score >= 45 && ageDays(f) <= 21);
     stage(`management: ${mgmt.length} filings`);
-    await pool(mgmt, 2, async (f) => {
+    await within(pool(mgmt, 2, async (f) => {
       if (timeLeft() < 60e3) return void skipped++;
       try {
         const r = await enrichManagement(f);
@@ -184,7 +193,7 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
       } catch (e) {
         errors.push(`mgmt ${f.ticker}: ${(e as Error).message.slice(0, 160)}`);
       }
-    });
+    }), 2 * 60e3);
 
     // Second opinion: every filing the rules couldn't place, plus recent non-routine ones.
     const skip = new Set(["results", "earnings_call", "investor_meetings", "dividend", "management_change"]);
@@ -193,7 +202,7 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
       .filter((f) => f.classifiedBy === "llm" || (f.tier !== "routine" && !skip.has(f.category) && ageDays(f) <= 10))
       .slice(0, 60);
     stage(`second opinion: ${review.length} filings`);
-    await pool(review, 3, async (f) => {
+    await within(pool(review, 3, async (f) => {
       if (timeLeft() < 45e3) return void skipped++;
       try {
         const o = await secondOpinion(f);
@@ -201,7 +210,7 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
       } catch (e) {
         errors.push(`opinion ${f.ticker}: ${(e as Error).message.slice(0, 120)}`);
       }
-    });
+    }), 20e3);
     stage(`enrichment done${skipped ? `, ${skipped} deferred to next run (time budget)` : ""}`);
   } else {
     errors.push("GEMINI_API_KEY not set: skipped enrichment");
