@@ -124,7 +124,10 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
     let lastErr: unknown;
     for (const model of MODELS[req.tier]) {
       try {
-        const r = await callGemini(model, req);
+        let r = await callGemini(model, req);
+        // Never cache a reply we can't parse: retry once, then give up loudly.
+        if (req.json && !isJSON(r.text)) r = await callGemini(model, { ...req, temperature: 0 });
+        if (req.json && !isJSON(r.text)) throw Object.assign(new Error(`${model} returned unparseable JSON`), { status: 422 });
         meter.calls++;
         meter.tokensIn += r.tin;
         meter.tokensOut += r.tout;
@@ -135,7 +138,7 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
       } catch (e) {
         lastErr = e;
         const status = (e as { status?: number }).status;
-        if (status !== 404 && status !== 400) throw e; // only fall through on "model not available"
+        if (status !== 404 && status !== 400 && status !== 422) throw e; // fall through on "model not available" or bad JSON
       }
     }
     throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
@@ -144,6 +147,15 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
   const { value, hit } = await cached("llm", cacheKey(req.tier, req.cacheId), run);
   if (hit) meter.cacheHits++;
   return { ...value, cached: hit };
+}
+
+function isJSON(t: string) {
+  try {
+    parseJSON(t);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Parse JSON from a model reply, tolerating ```json fences and trailing prose. */

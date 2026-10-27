@@ -8,10 +8,11 @@ import type { NumbersView } from "./numbers";
 export type Outcome = "delivered" | "missed" | "partly" | "pending" | "dropped";
 
 export interface Cite {
-  quarter: string;
-  page?: number;
+  quarter?: string | null;
+  page?: number | null;
   url?: string;
-  quote?: string;
+  quote?: string | null;
+  table?: string | null; // evidence from the reported numbers rather than a document page
 }
 
 export interface LedgerRow {
@@ -22,7 +23,7 @@ export interface LedgerRow {
   outcome: Outcome;
   evidence: string;
   promiseCite: Cite;
-  evidenceCite: Cite | { table: string };
+  evidenceCite: Cite;
 }
 
 export interface Ledger {
@@ -34,8 +35,8 @@ export interface Ledger {
 
 export interface Thesis {
   business: { summary: string; segments: { name: string; share: string | null; note: string }[]; cite: Cite } | null;
-  bull: { point: string; cite: Cite | { table: string } }[];
-  bear: { point: string; cite: Cite | { table: string } }[];
+  bull: { point: string; cite: Cite }[];
+  bear: { point: string; cite: Cite }[];
   watch: string[]; // what to check next quarter
 }
 
@@ -59,6 +60,70 @@ function callsBlock(calls: CallExtract[]): string {
     })
     .join("\n\n");
 }
+
+const CITE = {
+  type: "OBJECT",
+  properties: {
+    quarter: { type: "STRING", nullable: true },
+    page: { type: "INTEGER", nullable: true },
+    quote: { type: "STRING", nullable: true },
+    table: { type: "STRING", nullable: true, description: "set instead of quarter/page when the evidence is the reported numbers table, e.g. 'Q2 FY27 reported'" },
+  },
+};
+const COUNT = { type: "INTEGER" };
+const LEDGER_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    credibility: {
+      type: "OBJECT",
+      properties: { score: { type: "NUMBER" }, line: { type: "STRING" }, delivered: COUNT, missed: COUNT, partly: COUNT, pending: COUNT, dropped: COUNT },
+      required: ["score", "line", "delivered", "missed", "partly", "pending", "dropped"],
+    },
+    rows: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          metric: { type: "STRING" },
+          promise: { type: "STRING" },
+          made: { type: "STRING" },
+          horizon: { type: "STRING" },
+          outcome: { type: "STRING", enum: ["delivered", "missed", "partly", "pending", "dropped"] },
+          evidence: { type: "STRING" },
+          promiseCite: CITE,
+          evidenceCite: CITE,
+        },
+        required: ["metric", "promise", "made", "horizon", "outcome", "evidence", "promiseCite", "evidenceCite"],
+      },
+    },
+    divergences: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: { claim: { type: "STRING" }, reality: { type: "STRING" }, tone: { type: "STRING", enum: ["bad", "watch", "good"] }, cite: CITE },
+        required: ["claim", "reality", "tone", "cite"],
+      },
+    },
+    currentGuidance: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: { metric: { type: "STRING" }, statement: { type: "STRING" }, horizon: { type: "STRING" }, cite: CITE },
+        required: ["metric", "statement", "horizon", "cite"],
+      },
+    },
+  },
+  required: ["credibility", "rows", "divergences", "currentGuidance"],
+};
+const THESIS_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    bull: { type: "ARRAY", items: { type: "OBJECT", properties: { point: { type: "STRING" }, cite: CITE }, required: ["point", "cite"] } },
+    bear: { type: "ARRAY", items: { type: "OBJECT", properties: { point: { type: "STRING" }, cite: CITE }, required: ["point", "cite"] } },
+    watch: { type: "ARRAY", items: { type: "STRING" } },
+  },
+  required: ["bull", "bear", "watch"],
+};
 
 const LEDGER_PROMPT = `You are a sceptical buy-side analyst. Judge management's credibility using ONLY the material below: structured notes from their own earnings calls (oldest first) and the company's reported quarterly numbers. No outside knowledge.
 
@@ -88,14 +153,18 @@ export async function buildLedger(calls: CallExtract[], numbers: NumbersView): P
     tier: "reason",
     parts: [{ text: LEDGER_PROMPT }, { text: input }],
     json: true,
-    cacheId: `ledger-v2|${numbers.header.ticker}|${calls.map((c) => c.url).join(",")}|${numbers.quarters.cols.at(-1)}`,
+    schema: LEDGER_SCHEMA,
+    cacheId: `ledger-v3|${numbers.header.ticker}|${calls.map((c) => c.url).join(",")}|${numbers.quarters.cols.at(-1)}`,
     maxOutputTokens: 8192,
   });
   const l = parseJSON<Ledger>(r.text);
   // Attach document links so every citation in the UI opens the source PDF.
   const urlOf = new Map(calls.map((c) => [c.quarter, c.url]));
-  const link = (c: Cite) => (c && "quarter" in c ? { ...c, url: urlOf.get(c.quarter) } : c);
-  l.rows = (l.rows || []).map((x) => ({ ...x, promiseCite: link(x.promiseCite), evidenceCite: "quarter" in (x.evidenceCite || {}) ? link(x.evidenceCite as Cite) : x.evidenceCite }));
+  const link = <T,>(c: T): T => {
+    const q = (c as { quarter?: string | null })?.quarter;
+    return q && urlOf.get(q) ? { ...c, url: urlOf.get(q) } : c;
+  };
+  l.rows = (l.rows || []).map((x) => ({ ...x, promiseCite: link(x.promiseCite), evidenceCite: link(x.evidenceCite) }));
   l.divergences = (l.divergences || []).map((d) => ({ ...d, cite: link(d.cite) }));
   l.currentGuidance = (l.currentGuidance || []).map((g) => ({ ...g, cite: link(g.cite) }));
   return l;
@@ -113,12 +182,16 @@ export async function buildThesis(calls: CallExtract[], numbers: NumbersView): P
     tier: "reason",
     parts: [{ text: THESIS_PROMPT }, { text: `${biz}\n\nComputed financial signals:\n${signals}\n\n${actualsTable(numbers)}\n\n${callsBlock([...calls].reverse())}` }],
     json: true,
+    schema: THESIS_SCHEMA,
     cacheId: `thesis-v1|${numbers.header.ticker}|${calls.map((c) => c.url).join(",")}|${numbers.quarters.cols.at(-1)}`,
     maxOutputTokens: 4096,
   });
   const t = parseJSON<Omit<Thesis, "business">>(r.text);
   const urlOf = new Map(calls.map((c) => [c.quarter, c.url]));
-  const link = (c: Cite | { table: string }) => (c && "quarter" in c ? { ...c, url: urlOf.get(c.quarter) } : c);
+  const link = <T,>(c: T): T => {
+    const q = (c as { quarter?: string | null })?.quarter;
+    return q && urlOf.get(q) ? { ...c, url: urlOf.get(q) } : c;
+  };
   return {
     business: latest?.business ? { ...latest.business, cite: { quarter: latest.quarter, page: latest.business.page, url: latest.url } } : null,
     bull: (t.bull || []).map((b) => ({ ...b, cite: link(b.cite) })),
