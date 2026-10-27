@@ -1,70 +1,110 @@
 // Stage 2 of the push funnel: only filings that survived scoring get model time.
-//   results            -> line items from the actual results PDF (bulk model), maths done in code,
-//                         cross-checked against Screener's table
-//   management_change  -> who changed (bulk model on the filing) + background (grounded search)
-//   other material     -> one line on why it matters (bulk model)
+//   results            -> line items from the actual results PDF (cheap model, schema-enforced),
+//                         maths done in code, validated against Screener; escalates to the
+//                         stronger model only when validation fails
+//   management_change  -> who changed and whether they are top management (cheap model on the
+//                         filing), then background via grounded search only for senior appointees
+//   everything else    -> "second opinion": the cheap model reads the filing PDF, writes one line
+//                         of substance and nudges the rules' score within a bounded range
 import type { Category, Filing, MgmtCard, PersonBio, ResultsCard, SummaryCard, Triplet } from "../types";
-import { llm, parseJSON, pdfPart } from "../llm/router";
+import { llm, parseJSON, pdfPart, type LLMTier, type Part } from "../llm/router";
 import { fetchPdf } from "../sources/pdf";
 import type { ScreenerCompany } from "../sources/screener";
 import { row } from "../sources/screener";
-import { BASE_SCORE } from "./classify";
+import { BASE_SCORE, tierOf } from "./classify";
+
+// ---------- helpers ----------
+
+/** Models sometimes return "1,234.5" or "(12.3)" as strings; normalise to numbers. */
+export function toNum(v: unknown): number | null {
+  if (v == null) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v !== "string") return null;
+  let s = v.trim();
+  const neg = /^\(.*\)$/.test(s) || /^[-−–]/.test(s);
+  s = s.replace(/[(),\s₹]/g, "").replace(/^[-−–]/, "");
+  if (!s || s === "-") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? (neg ? -n : n) : null;
+}
+
+const S = {
+  num: { type: "NUMBER", nullable: true },
+  str: { type: "STRING" },
+  strN: { type: "STRING", nullable: true },
+  bool: { type: "BOOLEAN" },
+};
 
 // ---------- results ----------
 
-interface LineItems {
-  revenue_from_operations?: number | null;
-  total_income?: number | null;
-  other_income?: number | null;
-  total_expenses?: number | null;
-  finance_costs?: number | null;
-  depreciation?: number | null;
-  exceptional_items?: number | null; // as reported: negative = loss
-  pbt?: number | null;
-  pat?: number | null;
-  operating_profit_before_provisions?: number | null; // lenders
-  provisions?: number | null; // lenders
-}
+const LINE_ITEMS = [
+  "revenue_from_operations",
+  "total_income",
+  "other_income",
+  "total_expenses",
+  "finance_costs",
+  "depreciation",
+  "exceptional_items",
+  "pbt",
+  "pat",
+  "operating_profit_before_provisions",
+  "provisions",
+] as const;
+type LineItems = Partial<Record<(typeof LINE_ITEMS)[number], number | null>>;
+
+const columnSchema = { type: "OBJECT", properties: Object.fromEntries(LINE_ITEMS.map((k) => [k, S.num])) };
+const RESULTS_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    found: S.bool,
+    basis: { type: "STRING", enum: ["consolidated", "standalone"] },
+    unit: { type: "STRING", enum: ["crore", "lakh", "million", "thousand", "rupees"] },
+    is_lender: S.bool,
+    current_period_end: { type: "STRING", description: "End date of the current quarter, YYYY-MM-DD" },
+    current: columnSchema,
+    previous_quarter: columnSchema,
+    year_ago_quarter: columnSchema,
+  },
+  required: ["found", "basis", "unit", "is_lender", "current_period_end", "current", "previous_quarter", "year_ago_quarter"],
+};
 
 interface ResultsExtract {
   found: boolean;
   basis: "consolidated" | "standalone";
   unit: "crore" | "lakh" | "million" | "thousand" | "rupees";
   is_lender: boolean;
-  current_period: string; // "Quarter ended 30-Sep-2026"
+  current_period_end: string;
   current: LineItems;
   previous_quarter: LineItems;
   year_ago_quarter: LineItems;
 }
 
 const RESULTS_PROMPT = `You are reading an Indian listed company's quarterly financial results filing (SEBI LODR format).
-Extract line items for exactly three columns of the QUARTERLY table: the current quarter, the immediately preceding quarter, and the corresponding quarter of the previous year.
+Extract line items for exactly three columns of the QUARTERLY results table: the current quarter, the immediately preceding quarter, and the same quarter of the previous year. Ignore half-year and full-year columns.
 Rules:
-- Prefer the CONSOLIDATED results if present; otherwise use STANDALONE. Say which in "basis".
-- Copy numbers exactly as printed, in the unit printed in the table header (state it in "unit"). Do not convert.
-- Losses and negative values must be negative numbers. Use null when a line is not present. Never guess.
-- "pat" = profit for the period (before minority interest split, i.e. the total). "pbt" = profit before tax AFTER exceptional items.
-- "exceptional_items": as printed, negative if it is a loss/charge.
-- Banks/NBFCs/insurers: set is_lender=true, put interest earned / total revenue from operations in revenue_from_operations and fill operating_profit_before_provisions and provisions if printed.
-- If this document has no quarterly results table (e.g. it is only a notice or press release), return {"found": false}.
-Return JSON with keys: found, basis, unit, is_lender, current_period, current, previous_quarter, year_ago_quarter. Each column has keys: revenue_from_operations, total_income, other_income, total_expenses, finance_costs, depreciation, exceptional_items, pbt, pat, operating_profit_before_provisions, provisions.`;
+- Prefer the CONSOLIDATED statement if the filing has one; otherwise STANDALONE. Report which in "basis".
+- Copy numbers exactly as printed, in the unit printed in that table's header (report it in "unit"). Do not convert.
+- Negative values / losses must be negative numbers. Use null when a line is absent. Never estimate.
+- total_expenses = the "Total expenses" line. pbt = profit before tax AFTER exceptional items. pat = total profit for the period (before splitting to owners / non-controlling interest).
+- exceptional_items as printed (negative if a charge).
+- Banks/NBFCs/insurers: is_lender=true; revenue_from_operations = total revenue from operations (or interest earned + other operating income); fill operating_profit_before_provisions and provisions when printed.
+- If the document has no quarterly results table (a notice, a press release, a newspaper ad), set found=false.`;
 
 const UNIT_TO_CRORE: Record<string, number> = { crore: 1, lakh: 0.01, million: 0.1, thousand: 0.0001, rupees: 1e-7 };
 
 function ebitdaOf(li: LineItems, lender: boolean): number | null {
+  const n = (k: (typeof LINE_ITEMS)[number]) => toNum(li[k]);
   if (lender) {
-    if (li.operating_profit_before_provisions != null) return li.operating_profit_before_provisions;
-    if (li.pbt != null && li.provisions != null) return li.pbt + li.provisions - (li.exceptional_items ?? 0);
+    if (n("operating_profit_before_provisions") != null) return n("operating_profit_before_provisions");
+    if (n("pbt") != null && n("provisions") != null) return n("pbt")! + n("provisions")! - (n("exceptional_items") ?? 0);
     return null;
   }
-  // EBITDA = Revenue from operations - operating expenses, where operating expenses exclude
-  // finance cost and D&A. Computed in code, never by the model, so it is auditable.
-  if (li.revenue_from_operations != null && li.total_expenses != null) {
-    return li.revenue_from_operations - (li.total_expenses - (li.finance_costs ?? 0) - (li.depreciation ?? 0));
-  }
-  if (li.pbt != null && li.finance_costs != null && li.depreciation != null) {
-    return li.pbt + li.finance_costs + li.depreciation - (li.other_income ?? 0) - (li.exceptional_items ?? 0);
-  }
+  // EBITDA = revenue from operations - operating costs (total expenses less finance cost and D&A).
+  // Computed here, never by the model, so the number is auditable.
+  if (n("revenue_from_operations") != null && n("total_expenses") != null)
+    return n("revenue_from_operations")! - (n("total_expenses")! - (n("finance_costs") ?? 0) - (n("depreciation") ?? 0));
+  if (n("pbt") != null && n("finance_costs") != null && n("depreciation") != null)
+    return n("pbt")! + n("finance_costs")! + n("depreciation")! - (n("other_income") ?? 0) - (n("exceptional_items") ?? 0);
   return null;
 }
 
@@ -72,190 +112,260 @@ const r1 = (x: number | null) => (x == null ? null : Math.round(x * 10) / 10);
 
 export function pct(a: number | null, b: number | null): number | null {
   if (a == null || b == null || b === 0) return null;
-  if (b < 0 && a > 0) return null; // loss -> profit: % change is meaningless, UI says "turned profitable"
+  if (b < 0 && a > 0) return null;
   return ((a - b) / Math.abs(b)) * 100;
 }
 
 function verdictLine(c: Omit<ResultsCard, "verdict" | "kind">): string {
-  const f = (x: number | null) => (x == null ? "n/a" : `${x >= 0 ? "+" : ""}${x.toFixed(1)}%`);
-  const revY = pct(c.revenue.cur, c.revenue.prevY);
-  const patY = pct(c.pat.cur, c.pat.prevY);
+  const f = (x: number | null) => (x == null ? null : `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(1)}%`);
+  const parts: string[] = [];
+  const revY = f(pct(c.revenue.cur, c.revenue.prevY));
+  if (revY) parts.push(`Revenue ${revY} YoY`);
   const mNow = c.revenue.cur && c.ebitda.cur != null ? (c.ebitda.cur / c.revenue.cur) * 100 : null;
   const mThen = c.revenue.prevY && c.ebitda.prevY != null ? (c.ebitda.prevY / c.revenue.prevY) * 100 : null;
-  const parts = [`Revenue ${f(revY)} YoY`];
   if (mNow != null && mThen != null && !c.isLender) {
     const bps = Math.round((mNow - mThen) * 100);
-    parts.push(`EBITDA margin ${mNow.toFixed(1)}% (${bps >= 0 ? "+" : ""}${bps} bps)`);
+    parts.push(`margin ${mNow.toFixed(1)}% (${bps >= 0 ? "+" : "−"}${Math.abs(bps)} bps)`);
   }
   if (c.pat.cur != null && c.pat.prevY != null && c.pat.prevY < 0 && c.pat.cur > 0) parts.push("PAT turned positive");
-  else parts.push(`PAT ${f(patY)} YoY`);
-  return parts.join(" · ");
+  else if (c.pat.cur != null && c.pat.cur < 0) parts.push("net loss");
+  else if (f(pct(c.pat.cur, c.pat.prevY))) parts.push(`PAT ${f(pct(c.pat.cur, c.pat.prevY))} YoY`);
+  return parts.join(", ");
 }
 
-function quarterLabelFromPeriod(p: string): string | null {
-  // "Quarter ended 30-Sep-2026" / "30.09.2026" / "September 30, 2026" -> "Sep 2026"
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const m1 = p.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-.,]*(\d{1,2}[\s,]*)?(20\d\d)/i);
-  if (m1) return `${m1[1][0].toUpperCase()}${m1[1].slice(1, 3).toLowerCase()} ${m1[3]}`;
-  const m2 = p.match(/(\d{1,2})[./-](\d{1,2})[./-](20\d\d)/);
-  if (m2) return `${months[Number(m2[2]) - 1]} ${m2[3]}`;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function quarterLabel(end: string): string | null {
+  const m = end.match(/(20\d\d)-(\d\d)-\d\d/);
+  if (m) return `${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
+  const m2 = end.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-.,]*(\d{1,2}[\s,]*)?(20\d\d)/i);
+  if (m2) return `${m2[1][0].toUpperCase()}${m2[1].slice(1, 3).toLowerCase()} ${m2[3]}`;
   return null;
 }
 
 export function fiscalLabel(q: string): string {
-  // "Sep 2026" -> "Q2 FY27 (Sep 2026)" (Indian FY starts in April)
   const [mon, yr] = q.split(" ");
-  const qn = { Jun: 1, Sep: 2, Dec: 3, Mar: 4 }[mon as "Jun"];
+  const qn = ({ Jun: 1, Sep: 2, Dec: 3, Mar: 4 } as Record<string, number>)[mon];
   if (!qn) return q;
   const fy = mon === "Mar" ? Number(yr) : Number(yr) + 1;
   return `Q${qn} FY${String(fy).slice(2)} (${q})`;
 }
 
-export async function enrichResults(pdfUrl: string, sc?: ScreenerCompany | null): Promise<ResultsCard | null> {
-  const bytes = await fetchPdf(pdfUrl);
-  const res = await llm({
-    tier: "bulk",
-    parts: [{ text: RESULTS_PROMPT }, pdfPart(bytes)],
-    json: true,
-    cacheId: `results-v2|${pdfUrl}`,
-    maxOutputTokens: 2048,
-  });
-  const x = parseJSON<ResultsExtract>(res.text);
-  if (!x.found || !x.current) return null;
+function cardFrom(x: ResultsExtract, sc?: ScreenerCompany | null): ResultsCard | null {
+  if (!x?.found || !x.current) return null;
   const k = UNIT_TO_CRORE[x.unit] ?? 1;
   const lender = Boolean(x.is_lender || sc?.isLender);
-  const scale = (v: number | null | undefined) => (v == null ? null : r1(v * k));
-  const trip = (f: (li: LineItems) => number | null | undefined): Triplet => ({
-    cur: scale(f(x.current)),
-    prevQ: scale(f(x.previous_quarter || {})),
-    prevY: scale(f(x.year_ago_quarter || {})),
+  const sc_ = (v: number | null) => (v == null ? null : r1(v * k));
+  const trip = (f: (li: LineItems) => number | null): Triplet => ({
+    cur: sc_(f(x.current || {})),
+    prevQ: sc_(f(x.previous_quarter || {})),
+    prevY: sc_(f(x.year_ago_quarter || {})),
   });
-  const rev = (li: LineItems) => li.revenue_from_operations ?? li.total_income;
-  const qLabel = quarterLabelFromPeriod(x.current_period || "") || "";
+  const rev = (li: LineItems) => toNum(li.revenue_from_operations) ?? toNum(li.total_income);
+  const q = quarterLabel(x.current_period_end || "");
+  const exc = toNum(x.current.exceptional_items);
+  const pbtNow = toNum(x.current.pbt);
   const base = {
-    period: qLabel ? fiscalLabel(qLabel) : x.current_period,
+    period: q ? fiscalLabel(q) : x.current_period_end,
     basis: x.basis,
     isLender: lender,
     revenue: trip(rev),
     ebitda: trip((li) => ebitdaOf(li, lender)),
-    pbt: trip((li) => li.pbt),
-    pat: trip((li) => li.pat),
+    pbt: trip((li) => toNum(li.pbt)),
+    pat: trip((li) => toNum(li.pat)),
     ebitdaLabel: lender ? "Pre-provision profit" : "EBITDA",
     exceptional:
-      x.current.exceptional_items && Math.abs(x.current.exceptional_items * k) > 0.05 * Math.abs((x.current.pbt ?? 0) * k)
-        ? `Exceptional item of ₹${Math.abs(x.current.exceptional_items * k).toFixed(0)} cr ${x.current.exceptional_items < 0 ? "hit" : "lifted"} PBT`
+      exc && pbtNow && Math.abs(exc) > 0.05 * Math.abs(pbtNow)
+        ? `Exceptional item of ₹${Math.abs(exc * k).toLocaleString("en-IN", { maximumFractionDigits: 0 })} cr ${exc < 0 ? "hit" : "lifted"} PBT`
         : null,
   };
   const card: ResultsCard = { kind: "results", ...base, verdict: verdictLine(base) };
-
-  // Cross-check the model's reading against Screener's independently parsed table.
-  if (sc && qLabel) {
-    const i = sc.quarters.cols.indexOf(qLabel);
-    if (i >= 0 && sc.basis === x.basis) {
+  if (sc && q) {
+    const i = sc.quarters.cols.indexOf(q);
+    if (i >= 0) {
       const sSales = row(sc.quarters, "Sales", "Revenue")[i];
       const sPat = row(sc.quarters, "Net Profit")[i];
       const near = (a: number | null, b: number | null, tol: number) => a != null && b != null && Math.abs(a - b) <= tol * Math.max(1, Math.abs(b));
-      const ok = near(card.revenue.cur, sSales, 0.02) && near(card.pat.cur, sPat, 0.04);
+      const sameBasis = sc.basis === x.basis;
+      const ok = near(card.revenue.cur, sSales, 0.03) && near(card.pat.cur, sPat, 0.05);
       card.check = {
         source: "screener",
-        agrees: ok,
-        note: ok ? "Matches Screener's table" : `Screener shows revenue ${sSales ?? "–"} / PAT ${sPat ?? "–"} cr; check the filing`,
+        agrees: ok || !sameBasis,
+        note: ok
+          ? "Revenue and PAT match Screener's table"
+          : !sameBasis
+            ? `Read from the ${x.basis} statement (Screener tracks ${sc.basis})`
+            : `Screener shows revenue ${sSales ?? "–"} / PAT ${sPat ?? "–"} cr`,
       };
     }
   }
   return card;
 }
 
-// ---------- management change ----------
+const usable = (c: ResultsCard | null) => Boolean(c && c.revenue.cur != null && c.pat.cur != null && (!c.check || c.check.agrees));
 
-interface MgmtExtract {
-  people: { name: string; role: string; change: PersonBio["change"]; effective?: string | null; profile_in_filing?: string | null }[];
-  reason?: string | null;
+/** Results card from the filing PDF: cheap model first, stronger model only if validation fails. */
+export async function enrichResults(pdfUrl: string, sc?: ScreenerCompany | null): Promise<ResultsCard | null> {
+  const bytes = await fetchPdf(pdfUrl);
+  let best: ResultsCard | null = null;
+  for (const tier of ["bulk", "reason"] as LLMTier[]) {
+    const res = await llm({
+      tier,
+      parts: [{ text: RESULTS_PROMPT }, pdfPart(bytes)],
+      json: true,
+      schema: RESULTS_SCHEMA,
+      cacheId: `results-v3|${pdfUrl}`,
+      maxOutputTokens: 3000,
+    });
+    const card = cardFrom(parseJSON<ResultsExtract>(res.text), sc);
+    if (card) card.extractedBy = res.model;
+    if (usable(card)) return card;
+    if (card && (!best || (best.revenue.cur == null && card.revenue.cur != null))) best = card;
+  }
+  return best;
 }
 
-const MGMT_PROMPT = `This is an Indian stock-exchange filing about a change in directors or key management.
-List every person whose position changes. For each: full name (no honorifics), role (e.g. "Chief Financial Officer"), change (appointed|resigned|retired|redesignated|other), effective date if stated, and profile_in_filing: a one-sentence summary of any background/profile given in the filing itself (null if none).
-Also give "reason": the stated reason for a resignation, verbatim-short, else null.
-Return JSON {"people":[...],"reason":...}.`;
+/** Last resort when the filing can't be parsed: Screener's table, clearly labelled. */
+export function resultsFromScreener(sc: ScreenerCompany): ResultsCard | null {
+  const n = sc.quarters.cols.length;
+  if (n < 5) return null;
+  const pick = (vals: (number | null)[]): Triplet => ({ cur: vals[n - 1], prevQ: vals[n - 2], prevY: vals[n - 5] });
+  const base = {
+    period: fiscalLabel(sc.quarters.cols[n - 1]),
+    basis: sc.basis,
+    isLender: sc.isLender,
+    revenue: pick(row(sc.quarters, "Sales", "Revenue")),
+    ebitda: pick(row(sc.quarters, "Operating Profit", "Financing Profit")),
+    pbt: pick(row(sc.quarters, "Profit before tax")),
+    pat: pick(row(sc.quarters, "Net Profit")),
+    ebitdaLabel: sc.isLender ? "Financing profit" : "Operating profit",
+    exceptional: null,
+  };
+  return { kind: "results", ...base, verdict: verdictLine(base), check: { source: "screener", agrees: true, note: "Filing could not be parsed; numbers from Screener's table" } };
+}
 
-export async function enrichManagement(f: Filing): Promise<MgmtCard | null> {
-  const parts = [{ text: MGMT_PROMPT }, { text: `Subject: ${f.title}\nSummary: ${f.headline}` }] as Parameters<typeof llm>[0]["parts"];
+// ---------- management change ----------
+
+const MGMT_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    people: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: S.str,
+          role: S.str,
+          change: { type: "STRING", enum: ["appointed", "resigned", "retired", "redesignated", "other"] },
+          senior: { type: "BOOLEAN", description: "true for MD, CEO, CFO, COO, Chairperson, Whole-time/Executive Director, or business/division head" },
+          effective: S.strN,
+          profile_in_filing: S.strN,
+        },
+        required: ["name", "role", "change", "senior"],
+      },
+    },
+    reason: S.strN,
+  },
+  required: ["people"],
+};
+
+const MGMT_PROMPT = `This is an Indian stock-exchange filing about a change in directors or management.
+List each person whose position changes: full name without honorifics, role, change type, whether the role is senior (see schema), effective date if stated, and profile_in_filing = one sentence on any background the filing itself gives (null if none). "reason" = the stated reason for any resignation (short), else null. Ignore people whose role does not change.`;
+
+export async function enrichManagement(f: Filing): Promise<{ card: MgmtCard; senior: boolean } | null> {
+  const parts: Part[] = [{ text: MGMT_PROMPT }, { text: `Subject: ${f.title}\nSummary: ${f.headline}` }];
   if (f.pdf) {
     try {
       parts.push(pdfPart(await fetchPdf(f.pdf)));
     } catch {
-      /* headline-only extraction still works */
+      /* headline-only still works */
     }
   }
-  const ex = parseJSON<MgmtExtract>(
-    (await llm({ tier: "bulk", parts, json: true, cacheId: `mgmt-v1|${f.id}`, maxOutputTokens: 1024 })).text,
+  const ex = parseJSON<{ people: (PersonBio & { senior: boolean; profile_in_filing?: string | null })[]; reason?: string | null }>(
+    (await llm({ tier: "bulk", parts, json: true, schema: MGMT_SCHEMA, cacheId: `mgmt-v2|${f.id}`, maxOutputTokens: 1200 })).text,
   );
   if (!ex.people?.length) return null;
-
+  const senior = ex.people.some((p) => p.senior);
   const people: PersonBio[] = [];
-  for (const p of ex.people.slice(0, 3)) {
+  for (const p of ex.people.slice(0, 4)) {
     const person: PersonBio = { name: p.name, role: p.role, change: p.change, effective: p.effective ?? null, bio: p.profile_in_filing ?? null };
-    // Background search only for incoming people in senior roles: that is the question an investor asks.
-    if (p.change === "appointed" || p.change === "redesignated") {
+    if (p.senior && (p.change === "appointed" || p.change === "redesignated")) {
       try {
         const r = await llm({
           tier: "search",
           parts: [
             {
-              text: `Search the web (LinkedIn, company websites, reputable business press) for the professional background of ${p.name}, newly ${p.change} as ${p.role} of ${f.company} (India).
-Reply ONLY with JSON: {"bio": "<max 30 words: current expertise and the most relevant previous role>", "previously": ["<Role, Company>", "..."]} listing up to 3 prior roles, most recent first. If you cannot find this specific person, reply {"bio": null, "previously": []}.`,
+              text: `Search the web (LinkedIn, company websites, business press) for the professional background of ${p.name}, newly ${p.change} as ${p.role} of ${f.company} (India).
+Reply with JSON only: {"bio": "<max 30 words: what they are known for and the most relevant previous role>", "previously": ["<Role, Company, years if known>"]} with up to 3 prior roles, most recent first. If you cannot find this specific person, reply {"bio": null, "previously": []}.`,
             },
           ],
-          cacheId: `bio-v1|${p.name}|${f.company}`,
-          maxOutputTokens: 600,
+          cacheId: `bio-v2|${p.name}|${f.company}`,
+          maxOutputTokens: 700,
         });
         const b = parseJSON<{ bio: string | null; previously: string[] }>(r.text);
         if (b.bio) person.bio = b.bio;
         person.previously = (b.previously || []).slice(0, 3);
         person.sources = (r.sources || []).slice(0, 3);
-      } catch {
-        /* keep the filing's own profile */
+      } catch (e) {
+        console.error("bio search failed:", (e as Error).message.slice(0, 160));
       }
     }
     people.push(person);
   }
-  return { kind: "management", people, reason: ex.reason ?? null };
+  return { card: { kind: "management", people, reason: ex.reason ?? null }, senior };
 }
 
-// ---------- everything else: one line, batched ----------
+// ---------- second opinion on everything else that might matter ----------
 
-export interface Pending {
-  id: string;
-  company: string;
-  title: string;
-  headline: string;
-  needsCategory: boolean;
-}
+const CATS = Object.keys(BASE_SCORE) as Category[];
+const OPINION_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    category: { type: "STRING", enum: CATS },
+    materiality: { type: "INTEGER", description: "0-100: how likely this moves the stock or changes the investment case" },
+    line: { type: "STRING", nullable: true, description: "<=20 words, the concrete fact (amounts, counterparties, dates). null if the filing has no substance beyond its title." },
+  },
+  required: ["category", "materiality", "line"],
+};
 
-const CATS: Category[] = Object.keys(BASE_SCORE) as Category[];
+const OPINION_PROMPT = (f: Filing) => `You triage stock-exchange filings for a portfolio manager who owns ${f.company} (${f.ticker}).
+Read the filing and return: category, materiality (0-100; results/large M&A/CEO exit ~85+, routine compliance <15) and "line": the single most decision-relevant fact in at most 20 words, with numbers. No filler like "the company announced"; start with the fact. If there is nothing beyond the title, line = null.
+Exchange subject: ${f.title}
+Company's gist: ${f.headline.slice(0, 600)}`;
 
-/** One cheap call for many filings: classify the ones rules missed and write a one-liner for each. */
-export async function batchTriage(items: Pending[]): Promise<Record<string, { category?: Category; line: string; material?: boolean }>> {
-  if (!items.length) return {};
-  const out: Record<string, { category?: Category; line: string; material?: boolean }> = {};
-  for (let i = 0; i < items.length; i += 20) {
-    const chunk = items.slice(i, i + 20);
-    const prompt = `You triage Indian stock-exchange filings for a busy portfolio manager.
-For each filing below, return:
-- "line": at most 18 words stating the concrete fact and, if material, why it matters. No filler, no "the company announced". Use numbers from the text when present.
-- "category": one of ${CATS.join(", ")}${"  "}(only needed when needsCategory is true)
-- "material": true only if it could plausibly move the stock.
-Filings:
-${chunk.map((c) => JSON.stringify({ id: c.id, company: c.company, subject: c.title, gist: c.headline.slice(0, 500), needsCategory: c.needsCategory })).join("\n")}
-Return a JSON object keyed by id.`;
+export async function secondOpinion(f: Filing): Promise<{ category: Category; materiality: number; line: string | null } | null> {
+  const parts: Part[] = [{ text: OPINION_PROMPT(f) }];
+  let withPdf = false;
+  if (f.pdf) {
     try {
-      const r = await llm({ tier: "bulk", parts: [{ text: prompt }], json: true, cacheId: `triage-v1|${chunk.map((c) => c.id).join(",")}` });
-      Object.assign(out, parseJSON<typeof out>(r.text));
-    } catch (e) {
-      console.error("triage batch failed:", (e as Error).message);
+      const b = await fetchPdf(f.pdf);
+      if (b.length < 6_000_000) {
+        parts.push(pdfPart(b));
+        withPdf = true;
+      }
+    } catch {
+      /* fall back to text */
     }
   }
-  return out;
+  const r = await llm({ tier: "bulk", parts, json: true, schema: OPINION_SCHEMA, cacheId: `opinion-v1|${withPdf ? "pdf" : "txt"}|${f.id}`, maxOutputTokens: 400 });
+  const o = parseJSON<{ category: Category; materiality: number; line: string | null }>(r.text);
+  if (!CATS.includes(o.category)) return null;
+  return { ...o, materiality: Math.max(0, Math.min(100, Math.round(toNum(o.materiality) ?? 0))) };
+}
+
+/** Fuse rule score and model score. Rules anchor; the model can move a rule's score by at most ±25. */
+export function fuse(f: Filing, o: { category: Category; materiality: number; line: string | null }) {
+  if (f.classifiedBy === "llm") {
+    f.category = o.category;
+    f.score = o.materiality;
+    f.reason = `No rule matched; the model read the filing and scored it ${o.materiality}`;
+  } else {
+    const s = Math.round(Math.max(f.score - 25, Math.min(f.score + 25, (f.score + o.materiality) / 2)));
+    if (s !== f.score) f.reason = `${f.reason}. Rules said ${f.score}, the model read the filing and said ${o.materiality}`;
+    f.score = s;
+  }
+  f.tier = tierOf(f.score);
+  if (o.line) f.enrichment = summaryCard(o.line);
 }
 
 export function summaryCard(line: string): SummaryCard {

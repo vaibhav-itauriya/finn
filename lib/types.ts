@@ -50,6 +50,7 @@ export interface ResultsCard {
   exceptional?: string | null; // one line if an exceptional item distorts PAT
   verdict: string; // one line, numbers-only take
   check?: { source: "screener"; agrees: boolean; note: string };
+  extractedBy?: string; // model that read the filing
 }
 
 export interface PersonBio {

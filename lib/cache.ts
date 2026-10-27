@@ -10,7 +10,6 @@ import path from "node:path";
 const mem = new Map<string, unknown>();
 const REPO_DIR = path.join(process.cwd(), "data", "cache");
 const TMP_DIR = path.join("/tmp", "finn-cache");
-const canWriteRepo = process.env.FINN_CACHE_WRITE === "1";
 
 const upUrl = process.env.UPSTASH_REDIS_REST_URL;
 const upTok = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -59,7 +58,9 @@ export async function cacheGet<T>(ns: string, key: string): Promise<T | undefine
 export async function cacheSet(ns: string, key: string, value: unknown): Promise<void> {
   const k = `${ns}/${key}`;
   mem.set(k, value);
-  const dir = path.join(canWriteRepo ? REPO_DIR : TMP_DIR, ns);
+  // Day-scoped source snapshots stay out of git; model outputs and parsed documents are worth keeping.
+  const persist = process.env.FINN_CACHE_WRITE === "1" && ns !== "screener";
+  const dir = path.join(persist ? REPO_DIR : TMP_DIR, ns);
   try {
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, `${key}.json`), JSON.stringify(value));

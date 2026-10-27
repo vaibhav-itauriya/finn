@@ -55,4 +55,5 @@ jobs:
           git add data
           git diff --cached --quiet && echo "no changes" && exit 0
           git commit -m "data: push run $(date -u +%Y-%m-%dT%H:%MZ)"
-          for i in 1 2 3; do git pull --rebase origin ${{ github.ref_name }} && git push && break; sleep 5; done
+          ok=0; for i in 1 2 3; do git rebase --abort 2>/dev/null; git pull --rebase -X theirs origin ${{ github.ref_name }} && git push && ok=1 && break; sleep 5; done
+          test "$ok" = 1

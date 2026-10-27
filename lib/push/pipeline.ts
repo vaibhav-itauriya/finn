@@ -11,7 +11,7 @@ import { fetchAnnouncements, pdfUrl, type BseAnnouncement } from "../sources/bse
 import { fetchEOD } from "../sources/yahoo";
 import { fetchScreener, type ScreenerCompany } from "../sources/screener";
 import { classifyByRules, tierOf, BASE_SCORE } from "./classify";
-import { batchTriage, enrichManagement, enrichResults, summaryCard, type Pending } from "./enrich";
+import { enrichManagement, enrichResults, fuse, resultsFromScreener, secondOpinion } from "./enrich";
 import { hasLLM, meter, resetMeter } from "../llm/router";
 import { pool } from "../util/http";
 
@@ -34,7 +34,13 @@ function toFiling(a: BseAnnouncement, h: Holding): Filing {
     critical: a.CRITICALNEWS === "1",
   });
   const category = hit?.category ?? "unclassified";
-  const score = hit?.score ?? BASE_SCORE.unclassified;
+  let score = hit?.score ?? BASE_SCORE.unclassified;
+  let reason = hit?.reason ?? "Rules could not place this";
+  // Lenders issue debt every week; for them it is plumbing, not news.
+  if (category === "fund_raise" && score < 50 && /bank|nbfc|financ/i.test(h.sector)) {
+    score = 10;
+    reason = "Routine funding for a lender";
+  }
   return {
     id: a.NEWSID,
     ticker: h.ticker,
@@ -49,7 +55,7 @@ function toFiling(a: BseAnnouncement, h: Holding): Filing {
     category,
     tier: tierOf(score),
     score,
-    reason: hit?.reason ?? "Rules could not place this",
+    reason,
     classifiedBy: hit ? "rules" : "llm",
   };
 }
@@ -66,7 +72,6 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
   const since = new Date(Date.now() - days * 86400 * 1000);
   const holdings = opts.tickers ? portfolio.filter((h) => opts.tickers!.includes(h.ticker)) : portfolio;
   const prev = await readJSON<Digest | null>(path.join(DATA, "digest.json"), null);
-  const prevById = new Map((prev?.filings || []).map((f) => [f.id, f]));
   const errors: string[] = [];
   resetMeter();
 
@@ -103,12 +108,9 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
     try {
       const anns = await fetchAnnouncements(h.bse, since);
       for (const a of anns) {
-        const f = toFiling(a, h);
-        const old = prevById.get(f.id);
-        // Keep earlier enrichment and LLM decisions; documents don't change after filing.
-        if (old?.enrichment) f.enrichment = old.enrichment;
-        if (old?.classifiedBy === "llm") Object.assign(f, { category: old.category, score: old.score, tier: old.tier, reason: old.reason, classifiedBy: "llm" });
-        filings.push(f);
+        // No need to carry over last run's enrichment: model outputs are cached by document,
+        // so recomputing is free and picks up rule changes.
+        filings.push(toFiling(a, h));
       }
     } catch (e) {
       errors.push(`bse ${h.ticker}: ${(e as Error).message}`);
@@ -121,50 +123,68 @@ export async function runPush(portfolio: Holding[], opts: RunOptions = {}): Prom
   const byRules = filings.filter((f) => f.classifiedBy === "rules").length;
   log(`filings: ${filings.length} (${byRules} placed by rules)`);
 
-  // 2-3. classify leftovers + enrich -----------------------------------------
+  // 2-3. enrich: results, management, then a second opinion on what might matter --------
   if (hasLLM()) {
-    // Results: newest results filing per company only. Older ones are history.
-    const latestResult = new Map<string, Filing>();
+    const now = Date.now();
+    const ageDays = (f: Filing) => (now - new Date(f.ts).getTime()) / 86400e3;
+
+    // Results: one card per company for its newest results event, read from the primary filing.
+    const primary = new Map<string, Filing>();
     for (const f of filings) {
-      if (f.category === "results" && f.score >= 85 && f.pdf && !latestResult.has(f.ticker)) latestResult.set(f.ticker, f);
+      if (f.category !== "results" || f.score < 85 || !f.pdf) continue;
+      const cur = primary.get(f.ticker);
+      const better = (a: Filing) => (/financial results|results for the/i.test(a.title) ? 2 : 0) + (a.bseCategory === "Result" ? 1 : 0);
+      if (!cur) primary.set(f.ticker, f);
+      else if (Math.abs(new Date(cur.ts).getTime() - new Date(f.ts).getTime()) < 2 * 86400e3 && better(f) > better(cur)) primary.set(f.ticker, f);
     }
-    await pool([...latestResult.values()], 2, async (f) => {
-      if (f.enrichment) return;
+    await pool([...primary.values()], 2, async (f) => {
+      const sc = screener.get(f.ticker);
       try {
-        const card = await enrichResults(f.pdf!, screener.get(f.ticker));
+        const card = await enrichResults(f.pdf!, sc);
         if (card) f.enrichment = card;
       } catch (e) {
         errors.push(`results ${f.ticker}: ${(e as Error).message.slice(0, 160)}`);
       }
+      if (!f.enrichment && sc) {
+        const fb = resultsFromScreener(sc);
+        if (fb) f.enrichment = fb;
+      }
     });
 
-    const mgmt = filings.filter((f) => f.category === "management_change" && f.score >= 60 && !f.enrichment);
+    // Management: find out who. Senior roles go up, secretarial changes go down.
+    const mgmt = filings.filter((f) => f.category === "management_change" && f.score >= 45 && ageDays(f) <= 21);
     await pool(mgmt, 2, async (f) => {
       try {
-        const card = await enrichManagement(f);
-        if (card) f.enrichment = card;
+        const r = await enrichManagement(f);
+        if (!r) return;
+        f.enrichment = r.card;
+        if (r.senior) {
+          f.score = Math.max(f.score, 86);
+          f.reason = "Top management or board-level executive change";
+        } else {
+          f.score = Math.min(f.score, 30);
+          f.reason = "Change below top management";
+        }
+        f.tier = tierOf(f.score);
       } catch (e) {
         errors.push(`mgmt ${f.ticker}: ${(e as Error).message.slice(0, 160)}`);
       }
     });
 
-    // Batch everything else that is either unplaced or worth a one-liner.
-    const pending: Pending[] = filings
-      .filter((f) => !f.enrichment && (f.classifiedBy === "llm" ? f.reason === "Rules could not place this" : f.tier !== "routine"))
-      .filter((f) => f.category !== "results" || f.score < 85)
-      .map((f) => ({ id: f.id, company: f.company, title: f.title, headline: f.headline, needsCategory: f.reason === "Rules could not place this" }));
-    const tri = await batchTriage(pending);
-    for (const f of filings) {
-      const t = tri[f.id];
-      if (!t) continue;
-      if (t.category && f.reason === "Rules could not place this") {
-        f.category = t.category;
-        f.score = Math.min(100, BASE_SCORE[t.category] + (t.material ? 10 : 0));
-        f.tier = tierOf(f.score);
-        f.reason = "Classified by model (rules had no match)";
+    // Second opinion: every filing the rules couldn't place, plus recent non-routine ones.
+    const skip = new Set(["results", "earnings_call", "investor_meetings", "dividend", "management_change"]);
+    const review = filings
+      .filter((f) => !f.enrichment)
+      .filter((f) => f.classifiedBy === "llm" || (f.tier !== "routine" && !skip.has(f.category) && ageDays(f) <= 10))
+      .slice(0, 60);
+    await pool(review, 3, async (f) => {
+      try {
+        const o = await secondOpinion(f);
+        if (o) fuse(f, o);
+      } catch (e) {
+        errors.push(`opinion ${f.ticker}: ${(e as Error).message.slice(0, 120)}`);
       }
-      if (t.line && f.tier !== "routine") f.enrichment = summaryCard(t.line);
-    }
+    });
   } else {
     errors.push("GEMINI_API_KEY not set: skipped enrichment");
   }

@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* FINN tokens. Cool porcelain paper, blue-black ink, marigold for "this needs you".
+   Up/down stay conventional (green/red) because investors read them pre-attentively. */
+:root {
+  --paper: 241 243 240; /* #F1F3F0 */
+  --sheet: 251 252 250; /* #FBFCFA */
+  --ink: 24 33 46; /* #18212E */
+  --dim: 96 107 122; /* #606B7A */
+  --rule: 220 225 222; /* #DCE1DE */
+  --marigold: 226 154 18; /* #E29A12 */
+  --up: 14 122 92; /* #0E7A5C */
+  --down: 196 52 44; /* #C4342C */
+  --slate: 56 86 130; /* #385682 links, citations */
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: 16 21 29; /* #10151D */
+    --sheet: 24 31 42; /* #181F2A */
+    --ink: 230 234 238;
+    --dim: 145 156 170;
+    --rule: 44 54 68;
+    --marigold: 240 176 56;
+    --up: 64 196 150;
+    --down: 240 110 98;
+    --slate: 140 175 225;
+    color-scheme: dark;
+  }
+}
+
+html,
+body {
+  background: rgb(var(--paper));
+  color: rgb(var(--ink));
+}
+
+body {
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--slate));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* The outcome stamp: the one loud element in Research. */
+.stamp {
+  display: inline-block;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transform: rotate(-4deg);
+  line-height: 1.4;
+}
+
+.scroll-x {
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
