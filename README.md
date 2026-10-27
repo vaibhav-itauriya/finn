@@ -2,6 +2,16 @@
 
 A mobile-first investment agent for a portfolio manager who has ninety seconds between meetings.
 
+**Live:** https://finn-opal-delta.vercel.app (open it on a phone, "Add to Home Screen" makes it an app)
+**Push:** new material filings and threshold breaches also arrive on Telegram
+
+<p>
+<img src="docs/today.png" width="24%" alt="Today: an inbox you can finish">
+<img src="docs/research.png" width="24%" alt="Research: credibility verdict">
+<img src="docs/ledger.png" width="24%" alt="Promise ledger with receipts">
+<img src="docs/rules.png" width="24%" alt="Rules: you decide what is unusual">
+</p>
+
 FINN does two things.
 
 **Today (push).** Every filing your 18 holdings made on BSE, plus their end-of-day price and volume, read and triaged into an inbox you can finish. Three to five things need you. The rest is folded. Results show up as Revenue, EBITDA, PBT and PAT against last quarter and last year, read from the actual results PDF. A CEO change shows who the new person is. A stock that moved more than *your* threshold shows up next to them. Swipe right when you're done, left to mute that kind of filing for that company. When it's empty, it says so.
@@ -50,6 +60,19 @@ On the research side, summarising management is cheap and everyone does it. The 
 | Financial sections | none | Screener tables parsed and turned into signals by code. |
 
 Everything an LLM produces is cached by document (`data/cache`, committed by the pipeline), so the second run of the day costs close to nothing. The Today screen footer and `data/last-run.log` show calls, cache hits, tokens and what the run would cost on paid tiers.
+
+Real numbers from the pipeline on 27 Oct 2026, 18 holdings, 30 days of filings:
+
+| | |
+|---|---|
+| Filings read | 255 |
+| Sorted by rules alone | 229 (90%) |
+| Cold run (nothing cached) | about 50 model calls, about $0.02 at paid rates |
+| Warm run (same day) | 0 to 4 model calls, under $0.001 |
+| Research report, new company | 4 transcript reads + 2 judgement calls, about $0.03 |
+| Results cards matching Screener | 6 of 8 read from the PDF, 2 fell back to Screener and say so |
+
+The model chain is built from Google's live model list each run (`data/models.json`). On a free key the Flash models currently have no quota, so the judgement steps fall back to Flash-Lite and then Gemma. With billing on, they pick up the newest Flash with no code change.
 
 ### Guardrails against slop
 
