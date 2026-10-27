@@ -3,19 +3,47 @@
 //   reason -> stronger model: promise-vs-delivered judgement, bull/bear synthesis
 //   search -> grounded web search: only for push-side enrichment (who is the new CFO?)
 // Everything is cached by content, and every call is metered so the UI can show what a run cost.
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { cached, cacheKey } from "../cache";
 import { sleep } from "../util/http";
 
 export type LLMTier = "bulk" | "reason" | "search";
 
-const MODELS: Record<LLMTier, string[]> = {
-  bulk: [process.env.FINN_MODEL_BULK || "gemini-2.5-flash-lite", "gemini-flash-lite-latest", "gemini-2.0-flash-lite"],
-  reason: [process.env.FINN_MODEL_REASON || "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.0-flash"],
-  search: [process.env.FINN_MODEL_SEARCH || "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.0-flash"],
-};
+// Google retires model names often, so the chains are built from data/models.json (written by the
+// pipeline from the ListModels API) when present: newest Flash-Lite for bulk, newest Flash for
+// reasoning. Env vars override. Each tier ends with the other tier's models as a last resort, so a
+// spent daily quota degrades quality instead of breaking the feature.
+const version = (n: string) => Number((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+function available(): string[] {
+  try {
+    const list = JSON.parse(readFileSync(path.join(process.cwd(), "data", "models.json"), "utf8")) as { name: string }[];
+    return list
+      .map((m) => m.name)
+      .filter((n) => /^gemini-\d/.test(n) && /flash/.test(n) && !/(image|tts|audio|live|embed|exp|thinking|computer|robot|native)/.test(n));
+  } catch {
+    return [];
+  }
+}
+function buildChains(): Record<LLMTier, string[]> {
+  const av = available().sort((a, b) => version(b) - version(a) || Number(/preview/.test(a)) - Number(/preview/.test(b)));
+  const lite = av.filter((n) => /lite/.test(n));
+  const flash = av.filter((n) => !/lite/.test(n));
+  const uniq = (xs: (string | undefined)[]) => [...new Set(xs.filter((x): x is string => Boolean(x)))];
+  const bulk = uniq([process.env.FINN_MODEL_BULK, ...lite.slice(0, 2), "gemini-flash-lite-latest", "gemini-2.5-flash-lite"]);
+  const reason = uniq([process.env.FINN_MODEL_REASON, ...flash.slice(0, 2), "gemini-flash-latest", "gemini-2.5-flash"]);
+  return {
+    bulk: uniq([...bulk, ...reason]),
+    reason: uniq([...reason, ...bulk]),
+    search: uniq([process.env.FINN_MODEL_SEARCH, ...reason]),
+  };
+}
+let chains: Record<LLMTier, string[]> | null = null;
+const MODELS = new Proxy({} as Record<LLMTier, string[]>, { get: (_, k: LLMTier) => (chains ??= buildChains())[k] });
 
 // USD per 1M tokens (paid-tier list prices), used only to report what the free-tier run *would* cost.
 const PRICE: Record<string, [number, number]> = {
+  // Unknown newer models are priced by family below (see priceOf).
   "gemini-2.5-flash-lite": [0.1, 0.4],
   "gemini-flash-lite-latest": [0.1, 0.4],
   "gemini-2.0-flash-lite": [0.075, 0.3],
@@ -159,7 +187,7 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
         meter.tokensIn += r.tin;
         meter.tokensOut += r.tout;
         meter.models[model] = (meter.models[model] || 0) + 1;
-        const [pi, po] = PRICE[model] || [0.3, 2.5];
+        const [pi, po] = PRICE[model] || (/lite/.test(model) ? [0.1, 0.4] : [0.3, 2.5]);
         meter.usd += (r.tin * pi + r.tout * po) / 1e6;
         return { text: r.text, model: r.model, cached: false, sources: r.sources };
       } catch (e) {
@@ -169,7 +197,7 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
         if (status !== 404 && status !== 400 && status !== 422 && status !== 429) throw e; // otherwise try the next model
       }
     }
-    throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+    throw lastErr instanceof Error ? lastErr : new Error(`No ${req.tier} model available right now (quotas spent or models retired)`);
   };
   if (!req.cacheId) return run();
   const { value, hit } = await cached("llm", cacheKey(req.tier, req.cacheId), run);
