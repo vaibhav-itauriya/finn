@@ -178,9 +178,14 @@ export async function buildLedger(calls: CallExtract[], numbers: NumbersView): P
   const ground = (row: LedgerRow): Cite => {
     const c = calls.find((x) => x.quarter === row.promiseCite?.quarter) ?? null;
     const pool = (c ? c.guidance : calls.flatMap((x) => x.guidance)).filter((g) => g.verified);
-    const pw = words(`${row.promise} ${row.promiseCite?.quote || ""}`);
+    const pw = words(row.promise);
+    // If the promise has numbers, the quote must share at least one of them ("4500" won't match a "$1 billion" quote).
+    const nums = (t: string) => new Set((t.match(/\d[\d,.]*/g) || []).map((n) => n.replace(/[,.]$/, "").replace(/,/g, "")));
+    const pn = nums(row.promise);
     let best: { g: (typeof pool)[number]; s: number } | null = null;
     for (const g of pool) {
+      const gn = nums(`${g.statement} ${g.quote}`);
+      if (pn.size && ![...pn].some((n) => gn.has(n))) continue;
       const sc = overlap(pw, words(`${g.statement} ${g.quote}`));
       if (!best || sc > best.s) best = { g, s: sc };
     }

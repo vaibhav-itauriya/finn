@@ -179,7 +179,9 @@ const OUTCOME: Record<Outcome, { label: string; cls: string }> = {
 };
 
 function Verdict({ ledger }: { ledger: Ledger }) {
-  const c = ledger.credibility;
+  // Counts come from the rows themselves, not the model's summary, so the headline always matches the ledger.
+  const c = { ...ledger.credibility, delivered: 0, missed: 0, partly: 0, pending: 0, dropped: 0 };
+  for (const r of ledger.rows) if (r.outcome in c) c[r.outcome] += 1;
   const judged = c.delivered + c.missed + c.partly + c.dropped;
   return (
     <section className="mt-6 px-4">
@@ -232,14 +234,18 @@ function BullBear({ thesis }: { thesis: Thesis }) {
   );
 }
 
+const RANK: Record<Outcome, number> = { missed: 0, dropped: 1, partly: 2, delivered: 3, pending: 4 };
+
 function Promises({ ledger }: { ledger: Ledger }) {
   const [open, setOpen] = useState<number | null>(null);
+  // Broken promises first: that is what changes a view on management.
+  const rows = [...ledger.rows].sort((a, b) => (RANK[a.outcome] ?? 9) - (RANK[b.outcome] ?? 9));
   return (
     <section className="mt-9">
       <H2>Promise ledger</H2>
       <p className="px-4 mt-1 text-[12px] text-dim">What management said on earlier calls, and what happened. Tap a row for the receipts.</p>
       <ul className="mt-3 divide-y divide-rule border-y border-rule bg-sheet">
-        {ledger.rows.map((r, i) => (
+        {rows.map((r, i) => (
           <li key={i}>
             <button className="w-full px-4 py-3 text-left" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}>
               <div className="flex items-start gap-3">
