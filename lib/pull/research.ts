@@ -64,14 +64,17 @@ async function allCalls(ticker: string): Promise<CallExtract[]> {
   return out;
 }
 
-export async function stepLedger(ticker: string): Promise<Ledger> {
-  const [{ numbers }, calls] = await Promise.all([stepNumbers(ticker), allCalls(ticker)]);
+// The browser already holds the call extracts it just streamed in, so it sends them back for the
+// judgement steps. That keeps these requests independent of which serverless instance served the
+// extraction (no shared cache needed for the live path).
+export async function stepLedger(ticker: string, given?: CallExtract[]): Promise<Ledger> {
+  const [{ numbers }, calls] = await Promise.all([stepNumbers(ticker), given?.length ? given : allCalls(ticker)]);
   if (calls.length < 2) throw new Error("Need at least two transcripts to judge promises");
   return buildLedger(calls, numbers);
 }
 
-export async function stepThesis(ticker: string): Promise<Thesis> {
-  const [{ numbers }, calls] = await Promise.all([stepNumbers(ticker), allCalls(ticker)]);
+export async function stepThesis(ticker: string, given?: CallExtract[]): Promise<Thesis> {
+  const [{ numbers }, calls] = await Promise.all([stepNumbers(ticker), given?.length ? given : allCalls(ticker)]);
   if (!calls.length) throw new Error("No transcripts available");
   return buildThesis(calls, numbers);
 }

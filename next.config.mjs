@@ -3,6 +3,7 @@ const nextConfig = {
   // Ship the pipeline's output (digest, research snapshots, LLM cache) with the API functions.
   outputFileTracingIncludes: {
     "/api/**/*": ["./data/**/*"],
+    "/research/**/*": ["./data/research/**/*"],
   },
   serverExternalPackages: ["unpdf"],
 };

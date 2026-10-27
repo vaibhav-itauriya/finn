@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { ask, snapshot, stepCall, stepLedger, stepNumbers, stepThesis } from "@/lib/pull/research";
 import { hasLLM, meter } from "@/lib/llm/router";
+import type { CallExtract } from "@/lib/pull/calls";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -40,5 +41,22 @@ export async function GET(req: Request, ctx: { params: Promise<{ ticker: string 
     const msg = (e as Error).message || "failed";
     const status = /HTTP 404/.test(msg) ? 404 : 502;
     return NextResponse.json({ error: status === 404 ? `Couldn't find ${ticker} on Screener. Check the NSE symbol.` : msg.slice(0, 300) }, { status });
+  }
+}
+
+export async function POST(req: Request, ctx: { params: Promise<{ ticker: string }> }) {
+  const { ticker: raw } = await ctx.params;
+  const ticker = decodeURIComponent(raw).toUpperCase().replace(/[^A-Z0-9&\-]/g, "");
+  const step = new URL(req.url).searchParams.get("step");
+  if (!hasLLM()) return NextResponse.json({ error: "GEMINI_API_KEY is not configured on the server" }, { status: 503 });
+  const before = { calls: meter.calls, usd: meter.usd };
+  try {
+    const { calls } = (await req.json()) as { calls: CallExtract[] };
+    const clean = (calls || []).slice(0, 5);
+    const body = step === "ledger" ? await stepLedger(ticker, clean) : step === "thesis" ? await stepThesis(ticker, clean) : null;
+    if (!body) return NextResponse.json({ error: `unknown step ${step}` }, { status: 400 });
+    return NextResponse.json({ data: body, cost: { calls: meter.calls - before.calls, usd: meter.usd - before.usd } });
+  } catch (e) {
+    return NextResponse.json({ error: ((e as Error).message || "failed").slice(0, 300) }, { status: 502 });
   }
 }
