@@ -1,5 +1,24 @@
-ASIANPAINT: 4 calls, ledger none, thesis ok in 127s ledger: Expected ',' or ']' after array element in JSON at position 856 (line 27 column 6)
-KAYNES: 4 calls, ledger none, thesis ok in 103s ledger: Expected ',' or ']' after array element in JSON at position 922 (line 28 column 6)
-DMART: 4 calls, ledger none, thesis ok in 122s ledger: Expected ',' or ']' after array element in JSON at position 4809 (line 139 column 6)
-TITAN: 4 calls, ledger none, thesis ok in 91s ledger: Expected ',' or ']' after array element in JSON at position 952 (line 27 column 6)
-llm calls 24, cache hits 0, tokens 308872/60938, ~$0.1578, {"gemini-flash-lite-latest":16,"gemini-2.5-flash":8}
+run started 2026-10-27T17:29:08.970Z
+gemini-flash-lite-latest: 429, waiting 30s
+gemini-2.5-flash: daily quota exhausted, falling back
+gemini-flash-latest: 503, waiting 4s
+gemini-flash-latest: 503, waiting 8s
+gemini-flash-latest: daily quota exhausted, falling back
+ASIANPAINT: 4 calls, ledger none, thesis ok in 96s ledger: Gemini gemini-2.0-flash 404: {
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.8-flash for the l | thesis: undefined
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 503, waiting 8s
+gemini-flash-lite-latest: 503, waiting 4s
+KAYNES: 4 calls, ledger none, thesis ok in 161s ledger: undefined | thesis: undefined
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 503, waiting 8s
+gemini-flash-lite-latest: 503, waiting 12s
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 429, waiting 30s
+gemini-flash-lite-latest: 503, waiting 8s
+DMART: 3 calls, ledger none, thesis ok in 114s ledger: undefined | thesis: undefined
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 503, waiting 4s
+gemini-flash-lite-latest: 503, waiting 4s
