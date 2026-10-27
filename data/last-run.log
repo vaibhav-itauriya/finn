@@ -1,32 +1,23 @@
 screener: 18/18
 prices: 18/18
 filings: 255 (229 placed by rules)
-[8s] results: 9 filings
+[8s] results: 8 filings
 gemini-2.5-flash: daily quota exhausted, falling back
+gemini-2.5-flash: daily quota exhausted, falling back
+gemini-flash-latest: 503, waiting 4s
+gemini-flash-latest: 503, waiting 4s
 gemini-flash-latest: daily quota exhausted, falling back
-[55s] management: 4 filings
-gemini-flash-lite-latest: 503, waiting 4s
-[81s] second opinion: 37 filings
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 503, waiting 8s
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 429, waiting 30s
-gemini-flash-lite-latest: 429, waiting 30s
-gemini-flash-lite-latest: 429, waiting 30s
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 429, waiting 30s
-gemini-flash-lite-latest: 429, waiting 30s
-gemini-flash-lite-latest: 503, waiting 4s
-gemini-flash-lite-latest: 503, waiting 4s
-[290s] enrichment done
-done in 290s · 255 filings · rules 229 · llm calls 50 (cache hits 0) · tokens 212634/7571 · ~$0.0243 · models {"gemini-flash-lite-latest":50}
-errors (3):
-  results RELIANCE: Gemini gemini-2.0-flash 404: {
+gemini-flash-latest: daily quota exhausted, falling back
+[18s] second opinion: 38 filings
+[26s] management: 7 filings
+[44s] enrichment done
+done in 44s · 255 filings · rules 229 · llm calls 4 (cache hits 49) · tokens 5888/534 · ~$0.0008 · models {"gemini-flash-lite-latest":4}
+errors (2):
+  results PERSISTENT: Gemini gemini-2.0-flash 404: {
   "error": {
     "code": 404,
     "message": "This model models/gemini-2.0-flash is no longer available. Please update your code 
-  results HDFCBANK: undefined
-  results PERSISTENT: undefined
+  results HDFCBANK: Gemini gemini-2.0-flash 404: {
+  "error": {
+    "code": 404,
+    "message": "This model models/gemini-2.0-flash is no longer available. Please update your code 

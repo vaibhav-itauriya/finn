@@ -1,0 +1,1 @@
+{"text":"{\n  \"people\": [\n    {\n      \"name\": \"Rajesh Gharpure\",\n      \"role\": \"Chief Delivery Officer\",\n      \"change\": \"resigned\",\n      \"senior\": true,\n      \"effective\": \"October 14, 2026\",\n      \"profile_in_filing\": null\n    }\n  ],\n  \"reason\": \"personal reasons\"\n}","model":"gemini-flash-lite-latest","cached":false,"sources":[]}
