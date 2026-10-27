@@ -41,6 +41,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: List available models
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: npx tsx scripts/list-models.ts || true
       - name: Run pipeline
         timeout-minutes: 18
         continue-on-error: true
