@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { PORTFOLIO } from "../config/portfolio";
 import { runPush } from "../lib/push/pipeline";
+import { notify } from "../lib/push/notify";
 
 process.env.FINN_CACHE_WRITE = "1"; // persist LLM extractions into data/cache so the next run is free
 
@@ -30,6 +31,11 @@ async function main() {
     `done in ${((Date.now() - t0) / 1000).toFixed(0)}s · ${e.filings} filings · rules ${e.byRules} · llm calls ${e.llmCalls} (cache hits ${e.cacheHits}) · ` +
       `tokens ${e.tokensIn}/${e.tokensOut} · ~$${e.estCostUSD} · models ${JSON.stringify(e.models)}`,
   );
+  try {
+    await notify(digest, log);
+  } catch (err) {
+    log(`telegram failed: ${(err as Error).message}`);
+  }
   if (e.errors.length) log(`errors (${e.errors.length}):\n  ` + e.errors.join("\n  "));
   await fs.writeFile(path.join(process.cwd(), "data", "last-run.log"), lines.join("\n") + "\n");
 }

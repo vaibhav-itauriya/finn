@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "FINN",
   description: "Your portfolio's filings, triaged. Research grounded in what management actually said.",
   manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: "FINN", statusBarStyle: "default" },
 };
 
