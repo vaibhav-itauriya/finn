@@ -35,6 +35,8 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Precompute
+        timeout-minutes: 38
+        continue-on-error: true
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: npx tsx scripts/run-research.ts ${{ github.event.inputs.tickers }}

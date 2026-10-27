@@ -42,6 +42,8 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Run pipeline
+        timeout-minutes: 18
+        continue-on-error: true
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
