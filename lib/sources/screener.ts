@@ -104,8 +104,9 @@ export async function fetchScreener(tickerRaw: string): Promise<ScreenerCompany>
     const m = $(a).text().match(/NSE:\s*([A-Z0-9&\-]+)/);
     if (m && !nse) nse = m[1];
   });
-  const sector =
-    $("a[href*='/market/']").first().attr("title") || $("a[href*='/market/']").first().text().trim() || null;
+  // Peer breadcrumbs: links titled "Broad Sector", "Sector", "Broad Industry", "Industry"; the text is the value.
+  const crumb = (t: string) => $("a[href*='/market/']").filter((_, a) => $(a).attr("title") === t).first().text().trim();
+  const sector = crumb("Industry") || crumb("Sector") || crumb("Broad Industry") || $("a[href*='/market/']").last().text().trim() || null;
 
   const topRatios: Record<string, string> = {};
   $("#top-ratios li").each((_, li) => {

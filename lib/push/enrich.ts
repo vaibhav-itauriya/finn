@@ -319,6 +319,9 @@ Reply with JSON only: {"bio": "<max 30 words: what they are known for and the mo
     }
     people.push(person);
   }
+  // Lead with the incoming person: "who is taking over" is the question.
+  const order = { appointed: 0, redesignated: 1, resigned: 2, retired: 3, other: 4 } as const;
+  people.sort((a, b) => order[a.change] - order[b.change]);
   return { card: { kind: "management", people, reason: ex.reason ?? null }, senior };
 }
 

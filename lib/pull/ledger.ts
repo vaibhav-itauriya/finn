@@ -166,15 +166,29 @@ export async function buildLedger(calls: CallExtract[], numbers: NumbersView): P
     const q = (c as { quarter?: string | null })?.quarter;
     return q && urlOf.get(q) ? { ...c, url: urlOf.get(q) } : c;
   };
-  // Keep a quote only if it is one of the transcript quotes we already string-matched against the PDF.
-  const norm = (q: string) => q.toLowerCase().replace(/[^a-z0-9%]+/g, " ").trim();
-  const verifiedQuotes = calls.flatMap((c) => c.guidance.filter((g) => g.verified).map((g) => norm(g.quote)));
-  const isVerified = (q?: string | null) => Boolean(q && verifiedQuotes.some((v) => v.includes(norm(q).slice(0, 60)) || norm(q).includes(v.slice(0, 60))));
-  l.rows = (l.rows || []).map((x) => ({
-    ...x,
-    promiseCite: link({ ...x.promiseCite, quote: isVerified(x.promiseCite?.quote) ? x.promiseCite.quote : null }),
-    evidenceCite: link(x.evidenceCite),
-  }));
+  // Ground each promise in a quote we already string-matched against the transcript PDF:
+  // pick the verified guidance item from that call that best overlaps the promise text.
+  // The model's own quote is never shown unless it is one of those.
+  const words = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9%]+/g, " ").split(" ").filter((w) => w.length > 2));
+  const overlap = (a: Set<string>, b: Set<string>) => {
+    let n = 0;
+    a.forEach((w) => b.has(w) && n++);
+    return n / Math.max(1, Math.min(a.size, b.size));
+  };
+  const ground = (row: LedgerRow): Cite => {
+    const c = calls.find((x) => x.quarter === row.promiseCite?.quarter) ?? null;
+    const pool = (c ? c.guidance : calls.flatMap((x) => x.guidance)).filter((g) => g.verified);
+    const pw = words(`${row.promise} ${row.promiseCite?.quote || ""}`);
+    let best: { g: (typeof pool)[number]; s: number } | null = null;
+    for (const g of pool) {
+      const sc = overlap(pw, words(`${g.statement} ${g.quote}`));
+      if (!best || sc > best.s) best = { g, s: sc };
+    }
+    const owner = c ?? calls.find((x) => best && x.guidance.includes(best.g));
+    if (best && best.s >= 0.3 && owner) return { quarter: owner.quarter, page: best.g.page, quote: best.g.quote, url: owner.url };
+    return { ...row.promiseCite, quote: null };
+  };
+  l.rows = (l.rows || []).map((x) => ({ ...x, promiseCite: link(ground(x)), evidenceCite: link(x.evidenceCite) }));
   l.divergences = (l.divergences || []).map((d) => ({ ...d, cite: link(d.cite) }));
   l.currentGuidance = (l.currentGuidance || []).map((g) => ({ ...g, cite: link(g.cite) }));
   return l;
