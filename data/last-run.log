@@ -1,9 +1,9 @@
 screener: 18/18
 prices: 18/18
 filings: 255 (229 placed by rules)
-[7s] results: 8 filings
-[15s] second opinion: 38 filings
-[19s] management: 7 filings
+[6s] results: 8 filings
+[6s] second opinion: 38 filings
+[7s] management: 7 filings
 gemini-3.8-flash: 429, waiting 4s
 gemini-3.8-flash: 429, waiting 4s
 gemini-3.8-flash: 429, waiting 8s
@@ -14,9 +14,9 @@ gemini-3.7-flash: 429, waiting 4s
 gemini-3.7-flash: 429, waiting 4s
 gemini-3.7-flash: 429, waiting 8s
 gemini-3.7-flash: 429, waiting 8s
+gemini-3.7-flash: 429, waiting 12s
 gemini-3.7-flash: 429, waiting 12s
 gemini-3.6-flash: 429, waiting 4s
-gemini-3.7-flash: 429, waiting 12s
 gemini-3.6-flash: 429, waiting 4s
 gemini-3.6-flash: 429, waiting 8s
 gemini-3.6-flash: 429, waiting 8s
@@ -30,6 +30,7 @@ gemini-3.5-flash: 429, waiting 12s
 gemini-3.5-flash: 429, waiting 12s
 gemini-3-flash-preview: 429, waiting 4s
 gemini-3-flash-preview: 429, waiting 4s
+gemini-3-flash-preview: 429, waiting 4s
 gemini-3-flash-preview: 429, waiting 8s
 gemini-3-flash-preview: 429, waiting 8s
 gemini-3-flash-preview: 429, waiting 12s
@@ -40,6 +41,7 @@ gemini-flash-latest: 429, waiting 8s
 gemini-flash-latest: 429, waiting 8s
 gemini-flash-latest: 429, waiting 12s
 gemini-flash-latest: 429, waiting 12s
+gemini-2.5-flash: daily quota exhausted, falling back
 gemini-2.5-flash: daily quota exhausted, falling back
 gemini-3.8-flash: 429, waiting 4s
 gemini-3.8-flash: 429, waiting 8s
@@ -113,5 +115,5 @@ gemini-3-flash-preview: 429, waiting 12s
 gemini-flash-latest: 429, waiting 4s
 gemini-flash-latest: 429, waiting 8s
 gemini-flash-latest: 429, waiting 12s
-[392s] enrichment done
-done in 392s · 255 filings · rules 229 · llm calls 1 (cache hits 55) · tokens 109/698 · ~$0.0018 · models {"gemini-2.5-flash":1}
+[379s] enrichment done
+done in 379s · 255 filings · rules 229 · llm calls 0 (cache hits 55) · tokens 0/0 · ~$0 · models {}
