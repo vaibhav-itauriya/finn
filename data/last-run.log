@@ -1,0 +1,4 @@
+screener: 18/18
+prices: 18/18
+filings: 253 (201 placed by rules)
+done in 303s · 253 filings · rules 201 · llm calls 16 (cache hits 0) · tokens 117916/12789 · ~$0.0185 · models {"gemini-flash-lite-latest":15,"gemini-2.5-flash":1}
