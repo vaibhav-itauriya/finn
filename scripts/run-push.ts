@@ -2,6 +2,7 @@
 //   npx tsx scripts/run-push.ts [--days 30] [--only TCS,ITC]
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { appendFileSync } from "node:fs";
 import { PORTFOLIO } from "../config/portfolio";
 import { runPush } from "../lib/push/pipeline";
 import { notify } from "../lib/push/notify";
@@ -24,7 +25,7 @@ async function main() {
     console.log(s);
     lines.push(s);
     // Written as we go, so even a killed run leaves a trail in the committed data.
-    fs.appendFile(logFile, s + "\n").catch(() => {});
+    appendFileSync(logFile, s + "\n");
   };
   setLLMLogger(log);
   const t0 = Date.now();

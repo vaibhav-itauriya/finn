@@ -3,6 +3,7 @@
 //   npx tsx scripts/run-research.ts [TICKER ...]
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { appendFileSync } from "node:fs";
 import { RESEARCH_DEMO } from "../config/portfolio";
 import { meter, setLLMLogger } from "../lib/llm/router";
 import { fullReport } from "../lib/pull/research";
@@ -17,7 +18,7 @@ async function main() {
   await fs.writeFile(logFile, `run started ${new Date().toISOString()}\n`);
   const log = (s: string) => {
     console.log(s);
-    fs.appendFile(logFile, s + "\n").catch(() => {});
+    appendFileSync(logFile, s + "\n");
   };
   setLLMLogger(log);
   const perCompanyMs = Number(process.env.FINN_RESEARCH_MIN || 8) * 60e3;

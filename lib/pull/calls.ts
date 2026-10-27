@@ -35,16 +35,29 @@ export interface CallExtract {
   business: { summary: string; segments: { name: string; share: string | null; note: string }[]; page: number } | null;
 }
 
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const labelTime = (l: string) => {
+  const [m, y] = l.split(" ");
+  return Number(y) * 12 + MON.indexOf(m);
+};
+
+/** The n most recent distinct transcripts. Screener's list can contain duplicates and stray old links. */
 export function pickTranscripts(sc: ScreenerCompany, n = 4): TranscriptRef[] {
   const seen = new Set<string>();
-  const out: TranscriptRef[] = [];
+  const all: TranscriptRef[] = [];
   for (const c of sc.concalls) {
     if (!c.transcript || seen.has(c.transcript)) continue;
     seen.add(c.transcript);
-    out.push({ label: c.label, url: c.transcript });
-    if (out.length >= n) break;
+    all.push({ label: c.label, url: c.transcript });
   }
-  return out;
+  // Older-format IR links (e.g. a 2024 file listed under a 2026 month) are rarer than BSE links;
+  // prefer BSE-hosted files when two share a month.
+  const byMonth = new Map<string, TranscriptRef>();
+  for (const t of all) {
+    const cur = byMonth.get(t.label);
+    if (!cur || (/bseindia/.test(t.url) && !/bseindia/.test(cur.url))) byMonth.set(t.label, t);
+  }
+  return [...byMonth.values()].sort((a, b) => labelTime(b.label) - labelTime(a.label)).slice(0, n);
 }
 
 /** Page texts for a PDF, cached (re-used by extraction and by the Ask box). */

@@ -135,6 +135,8 @@ Tasks:
    - "pending": horizon not reached yet; say what the run-rate implies
    - "dropped": management stopped mentioning it or quietly changed the target (moved goalposts)
    Evidence must cite either the reported table (say which quarter and number) or a later call (quarter + page). Be specific with numbers. Max 8 rows, most important first. Skip trivial or unmeasurable promises.
+   The promise must name the business or segment it is about (e.g. "Watches: EBIT margin back to 15-16%"). Evidence must be about the SAME metric and the SAME segment; if you have no such evidence, the outcome is "pending", never "delivered".
+   For promiseCite.quote copy a quote exactly as given in the notes, or leave it null.
 2. "divergences": up to 4 places where the story and the numbers disagree (e.g. "demand is strong" while revenue growth decelerated 3 quarters in a row). Use "good" only when numbers beat the story.
 3. "currentGuidance": what the LATEST call guides for, max 5 items.
 4. "credibility": score 0-10 and one line (<=25 words) a PM can act on, plus counts.
@@ -154,7 +156,7 @@ export async function buildLedger(calls: CallExtract[], numbers: NumbersView): P
     parts: [{ text: LEDGER_PROMPT }, { text: input }],
     json: true,
     schema: LEDGER_SCHEMA,
-    cacheId: `ledger-v3|${numbers.header.ticker}|${calls.map((c) => c.url).join(",")}|${numbers.quarters.cols.at(-1)}`,
+    cacheId: `ledger-v4|${numbers.header.ticker}|${calls.map((c) => c.url).join(",")}|${numbers.quarters.cols.at(-1)}`,
     maxOutputTokens: 8192,
   });
   const l = parseJSON<Ledger>(r.text);
@@ -164,7 +166,15 @@ export async function buildLedger(calls: CallExtract[], numbers: NumbersView): P
     const q = (c as { quarter?: string | null })?.quarter;
     return q && urlOf.get(q) ? { ...c, url: urlOf.get(q) } : c;
   };
-  l.rows = (l.rows || []).map((x) => ({ ...x, promiseCite: link(x.promiseCite), evidenceCite: link(x.evidenceCite) }));
+  // Keep a quote only if it is one of the transcript quotes we already string-matched against the PDF.
+  const norm = (q: string) => q.toLowerCase().replace(/[^a-z0-9%]+/g, " ").trim();
+  const verifiedQuotes = calls.flatMap((c) => c.guidance.filter((g) => g.verified).map((g) => norm(g.quote)));
+  const isVerified = (q?: string | null) => Boolean(q && verifiedQuotes.some((v) => v.includes(norm(q).slice(0, 60)) || norm(q).includes(v.slice(0, 60))));
+  l.rows = (l.rows || []).map((x) => ({
+    ...x,
+    promiseCite: link({ ...x.promiseCite, quote: isVerified(x.promiseCite?.quote) ? x.promiseCite.quote : null }),
+    evidenceCite: link(x.evidenceCite),
+  }));
   l.divergences = (l.divergences || []).map((d) => ({ ...d, cite: link(d.cite) }));
   l.currentGuidance = (l.currentGuidance || []).map((g) => ({ ...g, cite: link(g.cite) }));
   return l;
