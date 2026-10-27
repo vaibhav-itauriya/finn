@@ -1,0 +1,59 @@
+name: FINN push pipeline
+
+# After market close on weekdays (16:10 IST) for EOD prices, and every 3 hours through the
+# day so results and other filings land while they are fresh. Manual runs are allowed too.
+on:
+  schedule:
+    - cron: "40 10 * * 1-5" # 16:10 IST
+    - cron: "17 3,6,13,16 * * *" # 08:47, 11:47, 18:47, 21:47 IST
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Filings lookback (days)"
+        default: "30"
+      only:
+        description: "Comma-separated tickers (blank = whole portfolio)"
+        default: ""
+  push:
+    paths:
+      - "lib/push/**"
+      - "lib/sources/**"
+      - "lib/llm/**"
+      - "config/**"
+      - "scripts/run-push.ts"
+      - ".github/workflows/push.yml"
+
+concurrency:
+  group: finn-push
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          ARGS="--days ${{ github.event.inputs.days || '30' }}"
+          if [ -n "${{ github.event.inputs.only }}" ]; then ARGS="$ARGS --only ${{ github.event.inputs.only }}"; fi
+          npx tsx scripts/run-push.ts $ARGS
+      - name: Commit data
+        run: |
+          git config user.name "finn-bot"
+          git config user.email "finn-bot@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet && echo "no changes" && exit 0
+          git commit -m "data: push run $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase origin ${{ github.ref_name }}
+          git push
