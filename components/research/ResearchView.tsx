@@ -146,25 +146,6 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
         )}
       </header>
 
-      {/* Progress: show the work while it happens */}
-      {transcripts.length > 0 && judging !== "done" && (
-        <section className="card mx-4 mt-3 p-4 text-[13px]" aria-live="polite">
-          <p className="font-bold">Reading the last {transcripts.length} earnings calls</p>
-          <ul className="mt-2 space-y-1">
-            {transcripts.map((t, i) => (
-              <li key={t.url} className="flex justify-between">
-                <span>{calls[i]?.quarter ?? t.label} call</span>
-                <span className={clsx("font-semibold", callStatus[i] === "done" ? "text-up" : callStatus[i] === "error" ? "text-down" : "text-dim")}>
-                  {callStatus[i] === "done" ? `${calls[i]?.guidance.length ?? 0} promises found` : callStatus[i] === "error" ? "couldn't read" : "reading…"}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {judging === "loading" && <p className="mt-2 text-dim">Checking promises against reported numbers. This takes 20 to 40 seconds.</p>}
-          {judging === "error" && <p className="mt-2 text-down">Couldn&apos;t judge this one. The financials tab is still complete.</p>}
-        </section>
-      )}
-
       <div className="sticky top-0 z-20 mt-3 bg-paper/95 py-2 backdrop-blur">
         <div className="scroll-x flex gap-2 overflow-x-auto px-4" role="tablist" aria-label="Research sections">
           {TABS.map((t) => (
@@ -186,19 +167,20 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
           {ledger && <Verdict ledger={ledger} />}
           {thesis && <BullBear thesis={thesis} />}
           {thesis?.business && <Business thesis={thesis} />}
-          {!ledger && !thesis && numbers && <p className="mx-4 mt-4 text-[13px] text-dim">The verdict appears once the calls are read. Financials are ready now.</p>}
+          {!ledger && !thesis && <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="verdict" onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
         </>
       )}
       {tab === "promises" && (
         <>
-          {ledger ? <Promises ledger={ledger} /> : <p className="mx-4 mt-4 text-[13px] text-dim">Promises appear once the calls are read.</p>}
+          {ledger ? <Promises ledger={ledger} /> : <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="promise ledger" onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
           {ledger && ledger.divergences.length > 0 && <Divergences ledger={ledger} />}
           {ledger && ledger.currentGuidance.length > 0 && <Guidance ledger={ledger} />}
         </>
       )}
-      {tab === "financials" && numbers && <Numbers n={numbers} />}
+      {tab === "financials" && (numbers ? <Numbers n={numbers} /> : <Skeleton rows={4} label="Fetching ten years of financials" />)}
       {tab === "calls" && (
         <>
+          {doneCalls.length === 0 && <Skeleton rows={3} label="Reading the transcripts" />}
           {doneCalls.length > 0 && <Ask ticker={ticker} />}
           {doneCalls.length > 0 && <Tone calls={doneCalls} />}
         </>
@@ -206,6 +188,107 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
 
       <Sources ticker={ticker} transcripts={transcripts} calls={doneCalls} numbers={numbers} verified={verified} total={totalQuotes} generatedAt={initial?.generatedAt} />
     </main>
+  );
+}
+
+function Spinner({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className="animate-spin" aria-hidden>
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeOpacity=".2" strokeWidth="3" />
+      <path d="M21 12a9 9 0 0 0-9-9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function Skeleton({ rows, label }: { rows: number; label: string }) {
+  return (
+    <section className="card mx-4 mt-3 p-4" aria-busy="true" aria-live="polite">
+      <p className="flex items-center gap-2 text-[13px] font-bold text-brand">
+        <Spinner size={16} /> {label}…
+      </p>
+      <div className="mt-3 space-y-2.5">
+        {Array.from({ length: rows }, (_, i) => (
+          <div key={i} className="h-3.5 animate-pulse rounded-full bg-raise" style={{ width: `${92 - i * 14}%` }} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Step-by-step progress while FINN reads the calls and judges them: the work is shown, not hidden. */
+function Loading({
+  calls,
+  callStatus,
+  transcripts,
+  judging,
+  what,
+  onRetry,
+}: {
+  calls: (CallExtract | null)[];
+  callStatus: Status[];
+  transcripts: TranscriptRef[];
+  judging: Status;
+  what: string;
+  onRetry?: () => void;
+}) {
+  const done = callStatus.filter((s) => s === "done").length;
+  const total = transcripts.length;
+  const pct = total ? Math.round(((done + (judging === "done" ? 1 : 0)) / (total + 1)) * 100) : 5;
+  if (judging === "error")
+    return (
+      <section className="card mx-4 mt-3 p-4 text-[13px]">
+        <p className="font-bold text-down">Couldn&apos;t build the {what} this time.</p>
+        <p className="mt-1 text-dim">Usually the free model quota is busy. The Financials tab is complete.</p>
+        {onRetry && (
+          <button onClick={onRetry} className="mt-3 rounded-xl bg-brand px-4 py-2 text-[13px] font-bold text-brand-ink">
+            Try again
+          </button>
+        )}
+      </section>
+    );
+  return (
+    <section className="card mx-4 mt-3 p-4" aria-busy="true" aria-live="polite">
+      <div className="flex items-center gap-2 text-[14px] font-bold text-brand">
+        <Spinner />
+        {total === 0 ? "Finding the latest earnings calls…" : judging === "loading" ? `Checking promises against reported numbers…` : `Reading earnings calls (${done} of ${total})…`}
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-raise">
+        <div className="h-full rounded-full bg-brand transition-all duration-500" style={{ width: `${pct}%` }} />
+      </div>
+      {total > 0 && (
+        <ul className="mt-3 space-y-1.5 text-[12.5px]">
+          {transcripts.map((t, i) => (
+            <li key={t.url} className="flex items-center justify-between">
+              <span>{calls[i]?.quarter ?? t.label} call</span>
+              <span className={clsx("flex items-center gap-1 font-semibold", callStatus[i] === "done" ? "text-up" : callStatus[i] === "error" ? "text-down" : "text-dim")}>
+                {callStatus[i] === "done" ? (
+                  `✓ ${calls[i]?.guidance.length ?? 0} promises`
+                ) : callStatus[i] === "error" ? (
+                  "couldn't read"
+                ) : (
+                  <>
+                    <Spinner size={12} /> reading
+                  </>
+                )}
+              </span>
+            </li>
+          ))}
+          <li className="flex items-center justify-between">
+            <span>Promise vs delivery check</span>
+            <span className="flex items-center gap-1 font-semibold text-dim">
+              {judging === "loading" ? (
+                <>
+                  <Spinner size={12} /> judging
+                </>
+              ) : (
+                "waiting"
+              )}
+            </span>
+          </li>
+        </ul>
+      )}
+      <p className="mt-3 text-[11.5px] text-dim">First read of a company takes about a minute. After that it&apos;s cached and opens instantly.</p>
+    </section>
   );
 }
 

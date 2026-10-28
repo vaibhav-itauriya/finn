@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { kv, kvEnabled } from "@/lib/kv";
 import { send } from "@/lib/telegram/bot";
+import { pushSecret } from "@/lib/telegram/secret";
 import { DEFAULT_RULES, type Rules } from "@/lib/client/alerts";
 import type { PushItem } from "@/lib/telegram/format";
 
@@ -11,7 +12,8 @@ export const maxDuration = 60;
 
 
 export async function POST(req: Request) {
-  if (!process.env.FINN_PUSH_SECRET || req.headers.get("x-finn-secret") !== process.env.FINN_PUSH_SECRET)
+  const secret = pushSecret();
+  if (!secret || req.headers.get("x-finn-secret") !== secret)
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (!kvEnabled()) return NextResponse.json({ error: "no store configured" }, { status: 501 });
   const { items = [], skip = [] } = (await req.json()) as { items: PushItem[]; skip?: string[] };

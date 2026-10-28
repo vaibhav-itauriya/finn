@@ -11,8 +11,9 @@ const mem = new Map<string, unknown>();
 const REPO_DIR = path.join(process.cwd(), "data", "cache");
 const TMP_DIR = path.join("/tmp", "finn-cache");
 
-const upUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const upTok = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+const pick = (names: string[]) => names.map((n) => process.env[n]).find(Boolean) || Object.entries(process.env).find(([k, v]) => v && names.some((n) => k.endsWith("_" + n)))?.[1];
+const upUrl = pick(["UPSTASH_REDIS_REST_URL", "KV_REST_API_URL"]);
+const upTok = pick(["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN"]);
 
 export function cacheKey(...parts: string[]): string {
   return createHash("sha1").update(parts.join("␟")).digest("hex").slice(0, 20);

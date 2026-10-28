@@ -8,6 +8,7 @@ import type { Digest } from "../types";
 import { DEFAULT_RULES, moveAlerts } from "../client/alerts";
 import { bundle } from "../client/bundle";
 import { filingMessage, moveMessage, type PushItem } from "../telegram/format";
+import { pushSecret } from "../telegram/secret";
 
 const SENT = path.join(process.cwd(), "data", "sent.json");
 
@@ -63,7 +64,7 @@ export async function notify(d: Digest, log: (s: string) => void) {
   }
 
   // 2. testers
-  const secret = process.env.FINN_PUSH_SECRET;
+  const secret = pushSecret();
   if (appUrl && secret && items.length) {
     try {
       const r = await fetch(`${appUrl}/api/telegram/broadcast`, {

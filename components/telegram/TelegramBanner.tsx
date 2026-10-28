@@ -8,7 +8,12 @@ import { useTelegram } from "@/lib/client/telegram";
 export function TelegramBanner({ compact }: { compact?: boolean }) {
   const tg = useTelegram();
   const [sent, setSent] = useState<string | null>(null);
-  if (tg.cfg && !tg.cfg.enabled) return null;
+  if (tg.cfg && !tg.cfg.enabled)
+    return compact ? (
+      <section className="card mx-4 mt-3 p-4 text-[12.5px] text-dim">
+        Telegram isn&apos;t switched on for this deployment yet (the server can&apos;t see a bot token). Once it is, a Connect Telegram button appears here and on Home.
+      </section>
+    ) : null;
 
   if (tg.conn)
     return (
