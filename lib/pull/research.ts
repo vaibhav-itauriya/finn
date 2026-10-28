@@ -5,7 +5,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { cached, cacheKey } from "../cache";
 import { llm } from "../llm/router";
-import { fetchScreener, type ScreenerCompany } from "../sources/screener";
+import { fetchScreener, fetchScreenerPrices, type ScreenerCompany } from "../sources/screener";
+import { fetchEOD } from "../sources/yahoo";
 import { annualReportRefs, bseTranscripts, docPages, extractCall, pickTranscripts, retrieve, type CallExtract, type TranscriptRef } from "./calls";
 import { buildLedger, buildThesis, type Ledger, type Thesis } from "./ledger";
 import { buildNumbers, type NumbersView } from "./numbers";
@@ -55,6 +56,29 @@ export async function transcripts(ticker: string): Promise<TranscriptRef[]> {
 export async function stepNumbers(ticker: string) {
   const sc = await company(ticker);
   return { numbers: buildNumbers(sc), transcripts: await transcripts(ticker) };
+}
+
+/** Five years of daily closes for the share-price chart. Refreshed every few hours. */
+export async function stepPrice(ticker: string) {
+  const sc = await company(ticker);
+  const bucket = Math.floor(new Date(Date.now() + 5.5 * 3600e3).getUTCHours() / 4);
+  const { value } = await cached("screener", cacheKey("price-v1", ticker.toUpperCase(), today(), String(bucket)), async () => {
+    const errs: string[] = [];
+    const tries: [string, () => Promise<{ d: string; c: number; v: number }[]>][] = [];
+    if (sc.nse) tries.push(["yahoo-nse", () => fetchEOD(sc.nse!, "5y")]);
+    if (sc.bse) tries.push(["yahoo-bse", () => fetchEOD(String(sc.bse), "5y", ".BO")]);
+    if (sc.companyId) tries.push(["screener", () => fetchScreenerPrices(sc.companyId!)]);
+    for (const [src, f] of tries) {
+      try {
+        const bars = await f();
+        if (bars.length > 20) return { source: src, bars: bars.map((b) => [b.d, b.c, b.v] as [string, number, number]) };
+      } catch (e) {
+        errs.push(`${src}: ${(e as Error).message.slice(0, 60)}`);
+      }
+    }
+    throw new Error(`No price history (${errs.join("; ") || "no listing found"})`);
+  });
+  return value;
 }
 
 export async function stepCall(ticker: string, i: number): Promise<CallExtract> {

@@ -12,8 +12,8 @@ interface ChartResp {
   };
 }
 
-export async function fetchEOD(nseTicker: string, range = "6mo"): Promise<Bar[]> {
-  const sym = encodeURIComponent(`${nseTicker}.NS`);
+export async function fetchEOD(nseTicker: string, range = "6mo", suffix = ".NS"): Promise<Bar[]> {
+  const sym = encodeURIComponent(`${nseTicker}${suffix}`);
   let lastErr: unknown;
   for (const host of ["query1", "query2"]) {
     try {

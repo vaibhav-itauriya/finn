@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* FINN tokens. Ice-blue paper and deep teal in light mode, deep ocean and cyan in dark.
+/* FINN tokens. Ice-blue paper and deep teal in light mode; near-black charcoal with a muted teal in dark (no neon).
    Up/down stay green/red because investors read them pre-attentively; "brand" carries
    everything interactive, "flag" (amber) is reserved for things that need a decision. */
 :root {
@@ -21,41 +21,47 @@
   --down: 214 64 64; /* #D64040 */
   --flag: 217 145 0; /* #D99100 amber */
   --shadow: 16 72 82;
+  --hero: 0 112 122; /* big highlight panels (digest brief) */
+  --hero-ink: 255 255 255;
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-  --paper: 8 18 22; /* #081216 deep ocean */
-  --sheet: 15 32 39; /* #0F2027 */
-  --raise: 21 42 51; /* #152A33 */
-  --ink: 226 240 241;
-  --dim: 128 156 163;
-  --rule: 28 52 61; /* #1C343D */
-  --brand: 34 211 238; /* #22D3EE cyan */
-  --brand-ink: 4 30 36;
-  --brand-soft: 14 52 61;
-  --up: 16 217 138; /* #10D98A emerald */
-  --down: 255 107 107;
-  --flag: 251 191 36;
+  --paper: 11 15 18; /* #0B0F12 near-black, cool */
+  --sheet: 20 26 30; /* #141A1E cards */
+  --raise: 28 36 41; /* #1C2429 chips, wells */
+  --ink: 232 237 239; /* #E8EDEF */
+  --dim: 139 152 159; /* #8B989F */
+  --rule: 37 46 52; /* #252E34 */
+  --brand: 45 190 176; /* #2DBEB0 muted teal, same family as light-mode #00707A */
+  --brand-ink: 4 28 26;
+  --brand-soft: 18 46 45; /* #122E2D */
+  --up: 38 194 129; /* #26C281 */
+  --down: 240 98 98; /* #F06262 */
+  --flag: 230 168 58; /* #E6A83A */
   --shadow: 0 0 0;
+  --hero: 14 66 64; /* #0E4240 deep teal panel, not a neon slab */
+  --hero-ink: 225 245 242;
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: 8 18 22;
-    --sheet: 15 32 39;
-    --raise: 21 42 51;
-    --ink: 226 240 241;
-    --dim: 128 156 163;
-    --rule: 28 52 61;
-    --brand: 34 211 238;
-    --brand-ink: 4 30 36;
-    --brand-soft: 14 52 61;
-    --up: 16 217 138;
-    --down: 255 107 107;
-    --flag: 251 191 36;
+    --paper: 11 15 18; /* #0B0F12 near-black, cool */
+    --sheet: 20 26 30; /* #141A1E cards */
+    --raise: 28 36 41; /* #1C2429 chips, wells */
+    --ink: 232 237 239; /* #E8EDEF */
+    --dim: 139 152 159; /* #8B989F */
+    --rule: 37 46 52; /* #252E34 */
+    --brand: 45 190 176; /* #2DBEB0 muted teal, same family as light-mode #00707A */
+    --brand-ink: 4 28 26;
+    --brand-soft: 18 46 45; /* #122E2D */
+    --up: 38 194 129; /* #26C281 */
+    --down: 240 98 98; /* #F06262 */
+    --flag: 230 168 58; /* #E6A83A */
     --shadow: 0 0 0;
+    --hero: 14 66 64;
+    --hero-ink: 225 245 242;
     color-scheme: dark;
   }
 }

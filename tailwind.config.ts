@@ -16,6 +16,8 @@ export default {
         brand: c("brand"),
         "brand-ink": c("brand-ink"),
         "brand-soft": c("brand-soft"),
+        hero: c("hero"),
+        "hero-ink": c("hero-ink"),
         up: c("up"),
         down: c("down"),
         flag: c("flag"),

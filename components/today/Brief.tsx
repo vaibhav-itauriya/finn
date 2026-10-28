@@ -33,13 +33,13 @@ export function Brief({ hours, auto }: { hours: number; auto?: boolean }) {
   }, [hours, auto]);
 
   return (
-    <section className="mx-4 mt-4 overflow-hidden rounded-[14px] bg-brand p-4 text-brand-ink" aria-live="polite">
+    <section className="mx-4 mt-4 overflow-hidden rounded-[14px] bg-hero p-4 text-hero-ink" aria-live="polite">
       <div className="flex items-center gap-2 text-[12px] font-bold opacity-90">
         <Icon name="spark" size={15} />
         FINN&apos;s read on the last {hours >= 48 ? `${Math.round(hours / 24)} days` : `${hours} hours`}
       </div>
       {state === "idle" && (
-        <button onClick={run} className="mt-2.5 w-full rounded-xl bg-brand-ink/15 py-2.5 text-[14px] font-bold">
+        <button onClick={run} className="mt-2.5 w-full rounded-xl bg-hero-ink/15 py-2.5 text-[14px] font-bold">
           Generate digest brief
         </button>
       )}
@@ -59,7 +59,7 @@ export function Brief({ hours, auto }: { hours: number; auto?: boolean }) {
             <ul className="mt-2 space-y-1.5 text-[13px] leading-snug">
               {b.bullets.map((x, i) => (
                 <li key={i} className="flex gap-2">
-                  <Link href={`/research/${x.ticker}`} className="shrink-0 rounded-md bg-brand-ink/15 px-1.5 py-[1px] text-[11.5px] font-extrabold">
+                  <Link href={`/research/${x.ticker}`} className="shrink-0 rounded-md bg-hero-ink/15 px-1.5 py-[1px] text-[11.5px] font-extrabold">
                     {x.ticker}
                   </Link>
                   <span>{x.text}</span>

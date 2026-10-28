@@ -30,9 +30,10 @@ export function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2" aria-label="FINN home">
       <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden>
-        <rect width="32" height="32" rx="9" fill="rgb(var(--brand))" />
-        <path d="M10 23V9h11M10 16h8" stroke="rgb(var(--brand-ink))" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        <circle cx="23" cy="22" r="2.6" fill="rgb(var(--up))" />
+        {/* Fixed colours: the mark looks the same in light and dark mode, and matches the app icon. */}
+        <rect width="32" height="32" rx="9" fill="#00707A" />
+        <path d="M10 23V9h11M10 16h8" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        <circle cx="23" cy="22" r="2.6" fill="#009662" />
       </svg>
       <span className="text-[17px] font-extrabold tracking-tight">FINN</span>
     </Link>

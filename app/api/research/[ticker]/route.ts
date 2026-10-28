@@ -5,9 +5,10 @@
 //   ?step=ledger           promise vs delivery (stronger model, on compact inputs)
 //   ?step=thesis           business + bull/bear (stronger model)
 //   ?step=ask&q=...        question over the transcripts (cheap model + keyword retrieval)
+//   ?step=price            five years of daily closes for the share chart (Yahoo, Screener fallback)
 //   ?step=snapshot         precomputed report for demo companies, if present
 import { NextResponse } from "next/server";
-import { ask, snapshot, stepCall, stepLedger, stepNumbers, stepThesis } from "@/lib/pull/research";
+import { ask, snapshot, stepCall, stepLedger, stepNumbers, stepPrice, stepThesis } from "@/lib/pull/research";
 import { hasLLM, meter } from "@/lib/llm/router";
 import type { CallExtract } from "@/lib/pull/calls";
 
@@ -25,6 +26,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ ticker: string 
     let body: unknown;
     if (step === "snapshot") body = await snapshot(ticker);
     else if (step === "numbers") body = await stepNumbers(ticker);
+    else if (step === "price") body = await stepPrice(ticker);
     else {
       if (!hasLLM()) return NextResponse.json({ error: "GEMINI_API_KEY is not configured on the server" }, { status: 503 });
       if (step === "call") body = await stepCall(ticker, Number(url.searchParams.get("i") || 0));
@@ -35,7 +37,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ ticker: string 
     }
     return NextResponse.json(
       { data: body, cost: { calls: meter.calls - before.calls, usd: meter.usd - before.usd } },
-      { headers: { "Cache-Control": step === "ask" ? "no-store" : "s-maxage=3600, stale-while-revalidate=86400" } },
+      { headers: { "Cache-Control": step === "ask" ? "no-store" : step === "price" ? "s-maxage=1800, stale-while-revalidate=7200" : "s-maxage=3600, stale-while-revalidate=86400" } },
     );
   } catch (e) {
     const msg = (e as Error).message || "failed";

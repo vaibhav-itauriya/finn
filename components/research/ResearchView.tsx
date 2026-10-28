@@ -5,11 +5,10 @@ import clsx from "clsx";
 import type { ResearchReport } from "@/lib/pull/research";
 import type { CallExtract, TranscriptRef } from "@/lib/pull/calls";
 import type { Ledger, Outcome, Thesis } from "@/lib/pull/ledger";
-import type { NumbersView, Signal } from "@/lib/pull/numbers";
-import { Bars } from "../Sparkline";
+import type { NumbersView } from "@/lib/pull/numbers";
 import { Cite } from "./Cite";
+import { Financials } from "./Financials";
 import { AppHeader } from "../AppHeader";
-import { fmtCr, fmtPct } from "@/lib/client/format";
 
 type Status = "idle" | "loading" | "done" | "error";
 
@@ -171,10 +170,10 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
 
       {tab === "overview" && (
         <>
+          {transcripts.some((t) => t.kind === "ar") && <ArNote ticker={ticker} onlyAr={transcripts.every((t) => t.kind === "ar")} />}
           {ledger && <Verdict ledger={ledger} />}
           {thesis && <BullBear thesis={thesis} />}
           {thesis?.business && <Business thesis={thesis} />}
-          {transcripts.some((t) => t.kind === "ar") && <ArNote ticker={ticker} onlyAr={transcripts.every((t) => t.kind === "ar")} />}
           {noDocs && <NoDocs ticker={ticker} />}
           {!ledger && !thesis && !noDocs && <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="verdict" errors={callErrors.current} onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
         </>
@@ -186,7 +185,7 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
           {ledger && ledger.currentGuidance.length > 0 && <Guidance ledger={ledger} />}
         </>
       )}
-      {tab === "financials" && (numbers ? <Numbers n={numbers} /> : <Skeleton rows={4} label="Fetching ten years of financials" />)}
+      {tab === "financials" && (numbers ? <Financials n={numbers} ticker={ticker} /> : <Skeleton rows={4} label="Fetching ten years of financials" />)}
       {tab === "calls" && (
         <>
           {noDocs && <NoDocs ticker={ticker} />}
@@ -516,155 +515,6 @@ function Guidance({ ledger }: { ledger: Ledger }) {
   );
 }
 
-function SignalList({ s }: { s: Signal[] }) {
-  if (!s.length) return null;
-  return (
-    <ul className="mt-2 space-y-1.5">
-      {s.map((x, i) => (
-        <li key={i} className="flex gap-2 text-[13px] leading-snug">
-          <span
-            className={clsx("mt-[6px] h-2 w-2 shrink-0 rounded-full", x.tone === "good" ? "bg-up" : x.tone === "bad" ? "bg-down" : x.tone === "watch" ? "bg-marigold" : "bg-dim/50")}
-            aria-label={x.tone}
-          />
-          {x.text}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Numbers({ n }: { n: NumbersView }) {
-  const q = n.quarters;
-  const short = (c: string) => c.replace(/^(\w{3}) 20(\d\d)$/, "$1 '$2");
-  return (
-    <section className="mt-4">
-      <H2>Numbers</H2>
-      <p className="px-4 mt-1 text-[12px] text-dim">From exchange filings via Screener, {n.header.basis}. Computed in code, no model involved.</p>
-      <dl className="card mx-4 mt-3 grid grid-cols-2 gap-px overflow-hidden bg-rule">
-        {n.snapshot.map((s) => (
-          <div key={s.label} className="bg-sheet p-3">
-            <dt className="text-[11px] text-dim">{s.label}</dt>
-            <dd className={clsx("mt-0.5 text-[18px] font-semibold num tracking-tight", s.tone === "bad" && "text-down")}>{s.value}</dd>
-            {s.sub && <dd className="text-[11px] text-dim num">{s.sub}</dd>}
-          </div>
-        ))}
-      </dl>
-
-      <div className="card mx-4 mt-3 p-4">
-        <h3 className="text-[14px] font-medium">Last 8 quarters</h3>
-        <div className="mt-2">
-          <Bars values={q.revenue} labels={q.cols} height={56} />
-          <div className="mt-1 grid text-[10px] text-dim num" style={{ gridTemplateColumns: `repeat(${q.cols.length}, minmax(0, 1fr))` }}>
-            {q.cols.map((c) => (
-              <span key={c} className="text-center">
-                {short(c)}
-              </span>
-            ))}
-          </div>
-        </div>
-        <table className="mt-3 w-full text-[12px] num">
-          <tbody>
-            {[
-              ["Revenue YoY", q.revYoY.map((x) => fmtPct(x, 0))],
-              [n.header.isLender ? "Fin. margin" : "Margin", q.margin.map((x) => (x == null ? "–" : `${x.toFixed(0)}%`))],
-              ["PAT YoY", q.patYoY.map((x) => fmtPct(x, 0))],
-            ].map(([label, vals]) => (
-              <tr key={label as string} className="border-t border-rule">
-                <th className="py-1 pr-1 text-left font-normal text-dim whitespace-nowrap">{label as string}</th>
-                {(vals as string[]).map((v, i) => (
-                  <td key={i} className={clsx("py-1 text-right", v.startsWith("−") && "text-down")}>
-                    {v}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card mx-4 mt-3 p-4">
-        <h3 className="text-[14px] font-medium">Trajectory</h3>
-        <p className="text-[12px] text-dim">Revenue by year, ₹ cr: {fmtCr(n.trajectory.revenue[0])} in {n.trajectory.cols[0]} to {fmtCr(n.trajectory.revenue.at(-1) ?? null)} in {n.trajectory.cols.at(-1)}</p>
-        <div className="mt-2">
-          <Bars values={n.trajectory.revenue} labels={n.trajectory.cols} height={48} />
-        </div>
-        <SignalList s={n.trajectory.signals} />
-      </div>
-
-      {!n.header.isLender && (
-        <div className="card mx-4 mt-3 p-4">
-          <h3 className="text-[14px] font-medium">Balance sheet</h3>
-          <table className="mt-2 w-full text-[12px] num">
-            <thead>
-              <tr className="text-dim">
-                <th className="text-left font-normal">₹ cr</th>
-                {n.balance.cols.slice(-4).map((c) => (
-                  <th key={c} className="text-right font-normal">
-                    {short(c)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ["Borrowings", n.balance.borrowings.slice(-4).map(fmtCr)],
-                ["Equity", n.balance.equity.slice(-4).map(fmtCr)],
-                ["Debt/equity", n.balance.de.slice(-4).map((x) => (x == null ? "–" : x.toFixed(2)))],
-                ["WC days", n.balance.wcDays.slice(-4).map((x) => (x == null ? "–" : x.toFixed(0)))],
-              ].map(([l, v]) => (
-                <tr key={l as string} className="border-t border-rule">
-                  <th className="py-1 text-left font-normal text-dim">{l as string}</th>
-                  {(v as string[]).map((x, i) => (
-                    <td key={i} className="py-1 text-right">
-                      {x}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <SignalList s={n.balance.signals} />
-        </div>
-      )}
-
-      {!n.header.isLender && (
-        <div className="card mx-4 mt-3 p-4">
-          <h3 className="text-[14px] font-medium">Cash quality</h3>
-          <table className="mt-2 w-full text-[12px] num">
-            <thead>
-              <tr className="text-dim">
-                <th className="text-left font-normal">₹ cr</th>
-                {n.cash.cols.slice(-4).map((c) => (
-                  <th key={c} className="text-right font-normal">
-                    {short(c)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ["Profit (PAT)", n.cash.pat.slice(-4).map(fmtCr)],
-                ["Operating cash", n.cash.cfo.slice(-4).map(fmtCr)],
-                ["Free cash", n.cash.fcf.slice(-4).map(fmtCr)],
-                ["Cash ÷ profit", n.cash.conversion.slice(-4).map((x) => (x == null ? "–" : `${x.toFixed(0)}%`))],
-              ].map(([l, v]) => (
-                <tr key={l as string} className="border-t border-rule">
-                  <th className="py-1 text-left font-normal text-dim">{l as string}</th>
-                  {(v as string[]).map((x, i) => (
-                    <td key={i} className={clsx("py-1 text-right", x.startsWith("−") && "text-down")}>
-                      {x}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <SignalList s={n.cash.signals} />
-        </div>
-      )}
-    </section>
-  );
-}
 
 function Business({ thesis }: { thesis: Thesis }) {
   const b = thesis.business!;

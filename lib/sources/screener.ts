@@ -21,6 +21,7 @@ export interface ScreenerCompany {
   basis: "consolidated" | "standalone";
   bse: number | null;
   nse: string | null;
+  companyId?: number | null; // Screener's internal id, used by its price-chart API
   sector: string | null;
   about: string | null;
   topRatios: Record<string, string>;
@@ -90,6 +91,7 @@ export async function fetchScreener(tickerRaw: string): Promise<ScreenerCompany>
   }
 
   const name = $("h1").first().text().trim() || ticker;
+  const companyId = Number($("#company-info").attr("data-company-id")) || null;
   const about = $(".company-profile .about p, .about p").first().text().trim() || null;
 
   // Exchange codes live in the company-links block: "BSE: 532540", "NSE: TCS".
@@ -165,6 +167,7 @@ export async function fetchScreener(tickerRaw: string): Promise<ScreenerCompany>
     url,
     basis,
     bse,
+    companyId,
     nse,
     sector,
     about,
@@ -213,4 +216,15 @@ export async function searchCompanies(q: string): Promise<SearchHit[]> {
     .filter((r) => r.url && r.url.startsWith("/company/"))
     .map((r) => ({ name: r.name, url: BASE + r.url, ticker: r.url.split("/")[2] }))
     .slice(0, 8);
+}
+
+/** Daily closes and volumes from Screener's chart API: the fallback when Yahoo refuses a server. */
+export async function fetchScreenerPrices(companyId: number, days = 1825): Promise<{ d: string; c: number; v: number }[]> {
+  const j = await getJSON<{ datasets: { metric: string; values: [string, string | number][] }[] }>(
+    `${BASE}/api/company/${companyId}/chart/?q=Price-Volume&days=${days}`,
+    { headers: { Referer: BASE + "/" } },
+  );
+  const price = j.datasets.find((d) => d.metric === "Price")?.values ?? [];
+  const vol = new Map((j.datasets.find((d) => d.metric === "Volume")?.values ?? []).map(([d, v]) => [d, Number(v)]));
+  return price.map(([d, c]) => ({ d, c: Number(c), v: vol.get(d) ?? 0 })).filter((b) => Number.isFinite(b.c));
 }
