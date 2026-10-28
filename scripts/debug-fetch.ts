@@ -13,7 +13,7 @@ const variants: [string, Record<string, string>][] = [
       try {
         const r = await fetch(u, { headers: h, redirect: "follow" });
         const b = new Uint8Array(await r.arrayBuffer());
-        out.push(`${name} ${r.status} ${r.headers.get("content-type")} ${b.length}B ${r.url.slice(0, 80)} :: ${Buffer.from(b.slice(0, 160)).toString("latin1").replace(/\s+/g, " ")}`);
+        out.push(`${name} ${r.status} ${r.headers.get("content-type")} ${b.length}B ${r.url.slice(0, 80)} :: ${Buffer.from(b.slice(0, 1200)).toString("latin1").replace(/\s+/g, " ")}`);
       } catch (e) {
         out.push(`${name} ERR ${(e as Error).message}`);
       }
