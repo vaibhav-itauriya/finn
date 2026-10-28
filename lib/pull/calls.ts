@@ -167,7 +167,7 @@ export function retrieve(pagesByDoc: { quarter: string; url: string; pages: stri
 export async function bseTranscripts(scrip: number | null): Promise<TranscriptRef[]> {
   if (!scrip) return [];
   const { fetchAnnouncements, pdfUrl } = await import("../sources/bse");
-  const since = new Date(Date.now() - 420 * 86400e3);
+  const since = new Date(Date.now() - 360 * 86400e3); // BSE returns nothing for ranges over a year
   const anns = await fetchAnnouncements(scrip, since).catch(() => []);
   const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return anns

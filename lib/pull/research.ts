@@ -41,7 +41,7 @@ export async function snapshot(ticker: string): Promise<ResearchReport | null> {
 /** Screener's transcript links merged with the exchange copies; BSE wins when both exist for a month. */
 export async function transcripts(ticker: string): Promise<TranscriptRef[]> {
   const sc = await company(ticker);
-  const { value } = await cached("screener", cacheKey("transcripts-v1", ticker.toUpperCase(), today()), async () => pickTranscripts(sc, 4, await bseTranscripts(sc.bse)));
+  const { value } = await cached("screener", cacheKey("transcripts-v2", ticker.toUpperCase(), today()), async () => pickTranscripts(sc, 4, await bseTranscripts(sc.bse)));
   return value;
 }
 
