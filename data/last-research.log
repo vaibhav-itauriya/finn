@@ -1,8 +1,13 @@
-run started 2026-10-28T21:28:52.913Z
+run started 2026-10-28T21:32:03.381Z
 gemini-3.8-flash: daily quota exhausted, falling back
 gemini-3.7-flash: daily quota exhausted, falling back
 gemini-3.6-flash: daily quota exhausted, falling back
 gemini-3.5-flash: daily quota exhausted, falling back
 gemini-3-flash-preview: daily quota exhausted, falling back
-MARUTI: 4 calls, ledger 0 rows, thesis ok in 169s 
-llm calls 6, cache hits 0, tokens 5150/3852, ~$0.0099, {"gemini-3.5-flash-lite":4,"gemini-3.5-flash":1,"gemini-flash-latest":1}
+gemini-flash-latest: daily quota exhausted, falling back
+gemini-2.5-flash: daily quota exhausted, falling back
+ASIANPAINT: 4 calls, ledger 7 rows, thesis ok in 52s 
+KAYNES: 4 calls, ledger 6 rows, thesis ok in 35s 
+DMART: 4 calls, ledger 6 rows, thesis ok in 30s 
+TITAN: 4 calls, ledger 6 rows, thesis ok in 28s 
+llm calls 24, cache hits 0, tokens 319183/29583, ~$0.0592, {"gemini-3.5-flash-lite":23,"gemini-2.5-flash":1}
