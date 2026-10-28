@@ -6,7 +6,7 @@ import path from "node:path";
 import { cached, cacheKey } from "../cache";
 import { llm } from "../llm/router";
 import { fetchScreener, type ScreenerCompany } from "../sources/screener";
-import { extractCall, pickTranscripts, retrieve, transcriptPages, type CallExtract, type TranscriptRef } from "./calls";
+import { bseTranscripts, extractCall, pickTranscripts, retrieve, transcriptPages, type CallExtract, type TranscriptRef } from "./calls";
 import { buildLedger, buildThesis, type Ledger, type Thesis } from "./ledger";
 import { buildNumbers, type NumbersView } from "./numbers";
 
@@ -38,21 +38,28 @@ export async function snapshot(ticker: string): Promise<ResearchReport | null> {
   }
 }
 
+/** Screener's transcript links merged with the exchange copies; BSE wins when both exist for a month. */
+export async function transcripts(ticker: string): Promise<TranscriptRef[]> {
+  const sc = await company(ticker);
+  const { value } = await cached("screener", cacheKey("transcripts-v1", ticker.toUpperCase(), today()), async () => pickTranscripts(sc, 4, await bseTranscripts(sc.bse)));
+  return value;
+}
+
 export async function stepNumbers(ticker: string) {
   const sc = await company(ticker);
-  return { numbers: buildNumbers(sc), transcripts: pickTranscripts(sc, 4) };
+  return { numbers: buildNumbers(sc), transcripts: await transcripts(ticker) };
 }
 
 export async function stepCall(ticker: string, i: number): Promise<CallExtract> {
   const sc = await company(ticker);
-  const t = pickTranscripts(sc, 4)[i];
+  const t = (await transcripts(ticker))[i];
   if (!t) throw new Error(`No transcript #${i} for ${ticker}`);
   return extractCall(t, i === 0);
 }
 
 async function allCalls(ticker: string): Promise<CallExtract[]> {
   const sc = await company(ticker);
-  const ts = pickTranscripts(sc, 4);
+  const ts = await transcripts(ticker);
   const out: CallExtract[] = [];
   for (let i = 0; i < ts.length; i++) {
     try {
@@ -69,7 +76,7 @@ async function allCalls(ticker: string): Promise<CallExtract[]> {
 // extraction (no shared cache needed for the live path).
 export async function stepLedger(ticker: string, given?: CallExtract[]): Promise<Ledger> {
   const [{ numbers }, calls] = await Promise.all([stepNumbers(ticker), given?.length ? given : allCalls(ticker)]);
-  if (calls.length < 2) throw new Error("Need at least two transcripts to judge promises");
+  if (calls.length < 1) throw new Error("No transcripts could be read");
   return buildLedger(calls, numbers);
 }
 
@@ -81,7 +88,7 @@ export async function stepThesis(ticker: string, given?: CallExtract[]): Promise
 
 export async function ask(ticker: string, question: string) {
   const sc = await company(ticker);
-  const ts = pickTranscripts(sc, 4);
+  const ts = await transcripts(ticker);
   const docs = await Promise.all(
     ts.map(async (t) => ({ quarter: t.label, url: t.url, pages: await transcriptPages(t.url).catch(() => [] as string[]) })),
   );
@@ -109,7 +116,7 @@ export async function fullReport(ticker: string): Promise<ResearchReport> {
   let ledger: Ledger | null = null;
   let thesis: Thesis | null = null;
   try {
-    if (calls.length >= 2) ledger = await buildLedger(calls, numbers);
+    if (calls.length >= 1) ledger = await buildLedger(calls, numbers);
   } catch (e) {
     errors.push(`ledger: ${(e as Error).message.slice(0, 200)}`);
   }

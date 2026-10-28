@@ -42,7 +42,7 @@ const labelTime = (l: string) => {
 };
 
 /** The n most recent distinct transcripts. Screener's list can contain duplicates and stray old links. */
-export function pickTranscripts(sc: ScreenerCompany, n = 4): TranscriptRef[] {
+export function pickTranscripts(sc: ScreenerCompany, n = 4, extra: TranscriptRef[] = []): TranscriptRef[] {
   const seen = new Set<string>();
   const all: TranscriptRef[] = [];
   for (const c of sc.concalls) {
@@ -50,6 +50,7 @@ export function pickTranscripts(sc: ScreenerCompany, n = 4): TranscriptRef[] {
     seen.add(c.transcript);
     all.push({ label: c.label, url: c.transcript });
   }
+  for (const t of extra) if (!seen.has(t.url)) all.push(t);
   // Older-format IR links (e.g. a 2024 file listed under a 2026 month) are rarer than BSE links;
   // prefer BSE-hosted files when two share a month.
   const byMonth = new Map<string, TranscriptRef>();
@@ -57,7 +58,10 @@ export function pickTranscripts(sc: ScreenerCompany, n = 4): TranscriptRef[] {
     const cur = byMonth.get(t.label);
     if (!cur || (/bseindia/.test(t.url) && !/bseindia/.test(cur.url))) byMonth.set(t.label, t);
   }
-  return [...byMonth.values()].sort((a, b) => labelTime(b.label) - labelTime(a.label)).slice(0, n);
+  // The same call can sit in adjacent months (company link vs exchange copy): keep the exchange copy.
+  const bse = [...byMonth.values()].filter((t) => /bseindia/.test(t.url));
+  const merged = [...byMonth.values()].filter((t) => /bseindia/.test(t.url) || !bse.some((b) => Math.abs(labelTime(b.label) - labelTime(t.label)) <= 1));
+  return merged.sort((a, b) => labelTime(b.label) - labelTime(a.label)).slice(0, n);
 }
 
 /** Page texts for a PDF, cached (re-used by extraction and by the Ask box). */
@@ -153,4 +157,24 @@ export function retrieve(pagesByDoc: { quarter: string; url: string; pages: stri
     });
   }
   return scored.sort((a, b) => b.score - a.score).slice(0, k);
+}
+
+/**
+ * Transcripts the company filed on BSE (SEBI requires filing within five working days of the call).
+ * Screener often links to a company's own IR host instead, and some of those (e.g. Azure blob
+ * storage) refuse cloud servers, so the exchange copy is the reliable fallback for the same month.
+ */
+export async function bseTranscripts(scrip: number | null): Promise<TranscriptRef[]> {
+  if (!scrip) return [];
+  const { fetchAnnouncements, pdfUrl } = await import("../sources/bse");
+  const since = new Date(Date.now() - 420 * 86400e3);
+  const anns = await fetchAnnouncements(scrip, since).catch(() => []);
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return anns
+    .filter((a) => /transcript/i.test(`${a.NEWSSUB} ${a.SUBCATNAME} ${a.HEADLINE}`) && a.ATTACHMENTNAME)
+    .map((a) => {
+      // Filed up to five working days after the call: date it back a week so it lines up with Screener's month.
+      const d = new Date(new Date(a.NEWS_DT).getTime() - 7 * 86400e3);
+      return { label: `${MON[d.getMonth()]} ${d.getFullYear()}`, url: pdfUrl(a)! };
+    });
 }

@@ -35,7 +35,7 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
   const judge = async (ok: CallExtract[]) => {
     setJudging("loading");
     const [l, t] = await Promise.allSettled([
-      ok.length >= 2 ? api<Ledger>(`/api/research/${ticker}?step=ledger`, { calls: ok }) : Promise.reject(new Error("need two calls")),
+      api<Ledger>(`/api/research/${ticker}?step=ledger`, { calls: ok }),
       api<Thesis>(`/api/research/${ticker}?step=thesis`, { calls: ok }),
     ]);
     if (l.status === "fulfilled") setLedger(l.value);
@@ -232,8 +232,31 @@ function Loading({
   onRetry?: () => void;
 }) {
   const done = callStatus.filter((s) => s === "done").length;
+  const failed = callStatus.filter((s) => s === "error").length;
   const total = transcripts.length;
-  const pct = total ? Math.round(((done + (judging === "done" ? 1 : 0)) / (total + 1)) * 100) : 5;
+  const settled = total > 0 && done + failed === total;
+  if (settled && done === 0)
+    return (
+      <section className="card mx-4 mt-3 p-4 text-[13px]">
+        <p className="font-bold text-down">None of the {total} transcripts could be opened.</p>
+        <p className="mt-1 text-dim">The company hosts them somewhere that blocks our server. The Financials tab is complete.</p>
+      </section>
+    );
+  if (judging === "done")
+    return (
+      <section className="card mx-4 mt-3 p-4 text-[13px]">
+        <p className="font-bold">Not enough material for a {what}.</p>
+        <p className="mt-1 text-dim">
+          Read {done} of {total} calls{failed ? ` (${failed} couldn't be opened)` : ""}. The calls that were read are in Calls &amp; Ask.
+        </p>
+        {onRetry && (
+          <button onClick={onRetry} className="mt-3 rounded-xl bg-brand px-4 py-2 text-[13px] font-bold text-brand-ink">
+            Try again
+          </button>
+        )}
+      </section>
+    );
+  const pct = total ? Math.round(((done + failed) / (total + 1)) * 100) : 5;
   if (judging === "error")
     return (
       <section className="card mx-4 mt-3 p-4 text-[13px]">
