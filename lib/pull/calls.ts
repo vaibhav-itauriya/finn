@@ -11,6 +11,7 @@ import type { ScreenerCompany } from "../sources/screener";
 export interface TranscriptRef {
   label: string; // Screener's month label, e.g. "Oct 2026"
   url: string;
+  alts?: string[]; // other copies of the same call, tried in order if the first can't be read
 }
 
 export interface GuidanceItem {
@@ -43,25 +44,30 @@ const labelTime = (l: string) => {
 
 /** The n most recent distinct transcripts. Screener's list can contain duplicates and stray old links. */
 export function pickTranscripts(sc: ScreenerCompany, n = 4, extra: TranscriptRef[] = []): TranscriptRef[] {
+  // Candidates, best first: Screener's exchange links, Screener's company links, then our own BSE
+  // lookups (which are sometimes just a cover letter pointing at the company's website).
+  const rank = (t: TranscriptRef, fromScreener: boolean) => (fromScreener ? (/bseindia/.test(t.url) ? 0 : 1) : 2);
   const seen = new Set<string>();
-  const all: TranscriptRef[] = [];
+  const all: { t: TranscriptRef; r: number }[] = [];
   for (const c of sc.concalls) {
     if (!c.transcript || seen.has(c.transcript)) continue;
     seen.add(c.transcript);
-    all.push({ label: c.label, url: c.transcript });
+    const t = { label: c.label, url: c.transcript };
+    all.push({ t, r: rank(t, true) });
   }
-  for (const t of extra) if (!seen.has(t.url)) all.push(t);
-  // Older-format IR links (e.g. a 2024 file listed under a 2026 month) are rarer than BSE links;
-  // prefer BSE-hosted files when two share a month.
-  const byMonth = new Map<string, TranscriptRef>();
-  for (const t of all) {
-    const cur = byMonth.get(t.label);
-    if (!cur || (/bseindia/.test(t.url) && !/bseindia/.test(cur.url))) byMonth.set(t.label, t);
+  for (const t of extra) if (!seen.has(t.url)) all.push({ t, r: rank(t, false) });
+  // One group per call: copies within a month of each other are the same call.
+  const groups: { time: number; items: { t: TranscriptRef; r: number }[] }[] = [];
+  for (const x of all.sort((p, q) => p.r - q.r)) {
+    const time = labelTime(x.t.label);
+    const g = groups.find((g) => Math.abs(g.time - time) <= 1);
+    if (g) g.items.push(x);
+    else groups.push({ time, items: [x] });
   }
-  // The same call can sit in adjacent months (company link vs exchange copy): keep the exchange copy.
-  const bse = [...byMonth.values()].filter((t) => /bseindia/.test(t.url));
-  const merged = [...byMonth.values()].filter((t) => /bseindia/.test(t.url) || !bse.some((b) => Math.abs(labelTime(b.label) - labelTime(t.label)) <= 1));
-  return merged.sort((a, b) => labelTime(b.label) - labelTime(a.label)).slice(0, n);
+  return groups
+    .sort((a, b) => b.time - a.time)
+    .slice(0, n)
+    .map((g) => ({ label: g.items[0].t.label, url: g.items[0].t.url, alts: g.items.slice(1).map((x) => x.t.url) }));
 }
 
 /**
@@ -135,8 +141,32 @@ Return JSON:
 }
 Keep at most 8 guidance items (the most important, quantitative first), 6 delivered items and 4 pushback items. Quotes must be verbatim.`;
 
+/** A one-page letter saying "the transcript has been uploaded on our website" is not a transcript. */
+function isCoverLetter(pages: string[]) {
+  const text = pages.join(" ");
+  return pages.length <= 3 && text.length < 6000 && /(uploaded|available|hosted|placed) (on|at) the (company'?s?|company’s)? ?website|below link|following link/i.test(text);
+}
+
 export async function extractCall(t: TranscriptRef, withBusiness = false): Promise<CallExtract> {
-  const pages = await transcriptPages(t.url);
+  let pages: string[] = [];
+  let used = t.url;
+  const reasons: string[] = [];
+  for (const u of [t.url, ...(t.alts || [])]) {
+    try {
+      const p = await transcriptPages(u);
+      if (isCoverLetter(p)) {
+        reasons.push("exchange filing is only a cover letter");
+        continue;
+      }
+      pages = p;
+      used = u;
+      break;
+    } catch (e) {
+      reasons.push(/Not a PDF/.test((e as Error).message) ? "company link is dead" : "couldn't download");
+    }
+  }
+  if (!pages.length) throw new Error(`No readable transcript for ${t.label}: ${[...new Set(reasons)].join(", ")}`);
+  t = { ...t, url: used };
   const body = pages.map((p, i) => `[[p.${i + 1}]]\n${p}`).join("\n\n").slice(0, 180_000);
   const r = await llm({
     tier: "bulk",

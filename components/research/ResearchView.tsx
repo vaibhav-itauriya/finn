@@ -30,6 +30,7 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
   const [err, setErr] = useState<string | null>(null);
   const [judging, setJudging] = useState<Status>(initial?.ledger && initial?.thesis ? "done" : "idle");
   const started = useRef(false);
+  const callErrors = useRef<Record<number, string>>({});
   const [tab, setTab] = useState<"overview" | "promises" | "financials" | "calls">("overview");
 
   const judge = async (ok: CallExtract[]) => {
@@ -69,7 +70,8 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
                 setCallStatus((s) => s.map((x, j) => (j === i ? "done" : x)));
                 return c;
               })
-              .catch(() => {
+              .catch((e: Error) => {
+                callErrors.current[i] = (e.message.split(": ").slice(1).join(": ") || e.message).slice(0, 80);
                 setCallStatus((s) => s.map((x, j) => (j === i ? "error" : x)));
                 return null;
               }),
@@ -167,12 +169,12 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
           {ledger && <Verdict ledger={ledger} />}
           {thesis && <BullBear thesis={thesis} />}
           {thesis?.business && <Business thesis={thesis} />}
-          {!ledger && !thesis && <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="verdict" onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
+          {!ledger && !thesis && <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="verdict" errors={callErrors.current} onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
         </>
       )}
       {tab === "promises" && (
         <>
-          {ledger ? <Promises ledger={ledger} /> : <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="promise ledger" onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
+          {ledger ? <Promises ledger={ledger} /> : <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="promise ledger" errors={callErrors.current} onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
           {ledger && ledger.divergences.length > 0 && <Divergences ledger={ledger} />}
           {ledger && ledger.currentGuidance.length > 0 && <Guidance ledger={ledger} />}
         </>
@@ -223,6 +225,7 @@ function Loading({
   judging,
   what,
   onRetry,
+  errors,
 }: {
   calls: (CallExtract | null)[];
   callStatus: Status[];
@@ -230,6 +233,7 @@ function Loading({
   judging: Status;
   what: string;
   onRetry?: () => void;
+  errors?: Record<number, string>;
 }) {
   const done = callStatus.filter((s) => s === "done").length;
   const failed = callStatus.filter((s) => s === "error").length;
@@ -287,7 +291,7 @@ function Loading({
                 {callStatus[i] === "done" ? (
                   `✓ ${calls[i]?.guidance.length ?? 0} promises`
                 ) : callStatus[i] === "error" ? (
-                  "couldn't read"
+                  <span title={errors?.[i]}>{errors?.[i] ? errors[i] : "couldn't read"}</span>
                 ) : (
                   <>
                     <Spinner size={12} /> reading
