@@ -1,4 +1,4 @@
-export function Sparkline({ values, width = 72, height = 24, tone }: { values: number[]; width?: number; height?: number; tone?: "up" | "down" }) {
+export function Sparkline({ values, width = 72, height = 24, tone }: { values: number[]; width?: number; height?: number; tone?: "up" | "down" | "brand" }) {
   if (values.length < 2) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);

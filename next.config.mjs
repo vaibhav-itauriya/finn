@@ -4,6 +4,7 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/api/**/*": ["./data/**/*"],
     "/research/**/*": ["./data/research/**/*"],
+    "/**/*": ["./data/digest.json", "./data/models.json"],
   },
   serverExternalPackages: ["unpdf"],
 };

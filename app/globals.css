@@ -1,33 +1,61 @@
+@import "@fontsource-variable/plus-jakarta-sans/index.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* FINN tokens. Cool porcelain paper, blue-black ink, marigold for "this needs you".
-   Up/down stay conventional (green/red) because investors read them pre-attentively. */
+/* FINN tokens. Ice-blue paper and deep teal in light mode, deep ocean and cyan in dark.
+   Up/down stay green/red because investors read them pre-attentively; "brand" carries
+   everything interactive, "flag" (amber) is reserved for things that need a decision. */
 :root {
-  --paper: 241 243 240; /* #F1F3F0 */
-  --sheet: 251 252 250; /* #FBFCFA */
-  --ink: 24 33 46; /* #18212E */
-  --dim: 96 107 122; /* #606B7A */
-  --rule: 220 225 222; /* #DCE1DE */
-  --marigold: 226 154 18; /* #E29A12 */
-  --up: 14 122 92; /* #0E7A5C */
-  --down: 196 52 44; /* #C4342C */
-  --slate: 56 86 130; /* #385682 links, citations */
+  --paper: 242 247 247; /* #F2F7F7 ice */
+  --sheet: 255 255 255; /* cards */
+  --raise: 234 243 243; /* chips, inset wells #EAF3F3 */
+  --ink: 13 38 46; /* #0D262E deep blue-teal ink */
+  --dim: 90 114 122; /* #5A727A */
+  --rule: 219 232 232; /* #DBE8E8 */
+  --brand: 0 112 122; /* #00707A deep teal */
+  --brand-ink: 255 255 255;
+  --brand-soft: 224 242 241; /* #E0F2F1 */
+  --up: 0 150 98; /* #009662 mint-emerald */
+  --down: 214 64 64; /* #D64040 */
+  --flag: 217 145 0; /* #D99100 amber */
+  --shadow: 16 72 82;
   color-scheme: light;
 }
 
+:root[data-theme="dark"] {
+  --paper: 8 18 22; /* #081216 deep ocean */
+  --sheet: 15 32 39; /* #0F2027 */
+  --raise: 21 42 51; /* #152A33 */
+  --ink: 226 240 241;
+  --dim: 128 156 163;
+  --rule: 28 52 61; /* #1C343D */
+  --brand: 34 211 238; /* #22D3EE cyan */
+  --brand-ink: 4 30 36;
+  --brand-soft: 14 52 61;
+  --up: 16 217 138; /* #10D98A emerald */
+  --down: 255 107 107;
+  --flag: 251 191 36;
+  --shadow: 0 0 0;
+  color-scheme: dark;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
-    --paper: 16 21 29; /* #10151D */
-    --sheet: 24 31 42; /* #181F2A */
-    --ink: 230 234 238;
-    --dim: 145 156 170;
-    --rule: 44 54 68;
-    --marigold: 240 176 56;
-    --up: 64 196 150;
-    --down: 240 110 98;
-    --slate: 140 175 225;
+  :root:not([data-theme="light"]) {
+    --paper: 8 18 22;
+    --sheet: 15 32 39;
+    --raise: 21 42 51;
+    --ink: 226 240 241;
+    --dim: 128 156 163;
+    --rule: 28 52 61;
+    --brand: 34 211 238;
+    --brand-ink: 4 30 36;
+    --brand-soft: 14 52 61;
+    --up: 16 217 138;
+    --down: 255 107 107;
+    --flag: 251 191 36;
+    --shadow: 0 0 0;
     color-scheme: dark;
   }
 }
@@ -39,7 +67,7 @@ body {
 }
 
 body {
-  font-feature-settings: "tnum" 1, "ss01" 1;
+  font-feature-settings: "tnum" 1, "cv11" 1;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
@@ -48,30 +76,49 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.card {
+  background: rgb(var(--sheet));
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgb(var(--shadow) / 0.06), 0 6px 18px -6px rgb(var(--shadow) / 0.1);
+}
+:root[data-theme="dark"] .card {
+  box-shadow: 0 0 0 1px rgb(var(--rule));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .card {
+    box-shadow: 0 0 0 1px rgb(var(--rule));
+  }
+}
+
 :focus-visible {
-  outline: 2px solid rgb(var(--slate));
+  outline: 2px solid rgb(var(--brand));
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 /* The outcome stamp: the one loud element in Research. */
 .stamp {
   display: inline-block;
   border: 1.5px solid currentColor;
-  border-radius: 3px;
+  border-radius: 4px;
   padding: 1px 6px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   transform: rotate(-4deg);
   line-height: 1.4;
 }
 
 .scroll-x {
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 .scroll-x::-webkit-scrollbar {
   display: none;
+}
+
+input[type="range"] {
+  accent-color: rgb(var(--brand));
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,62 +2,53 @@ import type { ResultsCard, Triplet } from "@/lib/types";
 import { change, fmtCr, fmtPct } from "@/lib/client/format";
 import clsx from "clsx";
 
-function Delta({ v }: { v: number | null }) {
-  if (v == null) return <span className="text-dim">–</span>;
-  if (v === Infinity) return <span className="text-up">to profit</span>;
-  return <span className={clsx(v > 0.05 ? "text-up" : v < -0.05 ? "text-down" : "text-dim")}>{fmtPct(v)}</span>;
-}
-
-function Row({ label, t, strong }: { label: string; t: Triplet; strong?: boolean }) {
+function Delta({ v, label }: { v: number | null; label: string }) {
+  const txt = v == null ? "–" : v === Infinity ? "to profit" : fmtPct(v);
   return (
-    <tr className="border-t border-rule">
-      <th scope="row" className={clsx("py-1.5 pr-2 text-left font-normal", strong ? "text-ink" : "text-dim")}>
-        {label}
-      </th>
-      <td className="py-1.5 text-right num font-medium">{fmtCr(t.cur)}</td>
-      <td className="py-1.5 text-right num pl-3">
-        <Delta v={change(t.cur, t.prevQ)} />
-      </td>
-      <td className="py-1.5 text-right num pl-3">
-        <Delta v={change(t.cur, t.prevY)} />
-      </td>
-    </tr>
+    <span className="flex items-baseline justify-between gap-1">
+      <span className="text-dim">{label}</span>
+      <span className={clsx("font-bold num", v == null ? "text-dim" : v === Infinity || v > 0.05 ? "text-up" : v < -0.05 ? "text-down" : "text-dim")}>{txt}</span>
+    </span>
   );
 }
 
-export function ResultsTable({ r }: { r: ResultsCard }) {
-  const margin = (t: Triplet, rev: Triplet) => ({
-    cur: rev.cur && t.cur != null ? (t.cur / rev.cur) * 100 : null,
-    y: rev.prevY && t.prevY != null ? (t.prevY / rev.prevY) * 100 : null,
-  });
-  const m = margin(r.ebitda, r.revenue);
+function Tile({ label, t }: { label: string; t: Triplet }) {
   return (
-    <div className="mt-2">
-      <table className="w-full text-[13px]">
-        <caption className="sr-only">Headline numbers in ₹ crore</caption>
-        <thead>
-          <tr className="text-[11px] text-dim">
-            <th className="text-left font-normal pb-1">₹ cr, {r.basis}</th>
-            <th className="text-right font-normal pb-1">{r.period.split(" (")[0]}</th>
-            <th className="text-right font-normal pb-1 pl-3">QoQ</th>
-            <th className="text-right font-normal pb-1 pl-3">YoY</th>
-          </tr>
-        </thead>
-        <tbody>
-          <Row label="Revenue" t={r.revenue} strong />
-          <Row label={r.ebitdaLabel} t={r.ebitda} />
-          <Row label="PBT" t={r.pbt} />
-          <Row label="PAT" t={r.pat} strong />
-        </tbody>
-      </table>
-      {!r.isLender && m.cur != null && (
-        <p className="mt-1.5 text-[12px] text-dim num">
-          EBITDA margin {m.cur.toFixed(1)}%{m.y != null && <> vs {m.y.toFixed(1)}% a year ago</>}
-        </p>
-      )}
-      {r.exceptional && <p className="mt-1 text-[12px] text-marigold">{r.exceptional}</p>}
+    <div className="rounded-xl bg-raise p-2.5">
+      <p className="text-[11px] font-semibold text-dim">{label}</p>
+      <p className="mt-0.5 text-[16px] font-extrabold tracking-tight num">₹{fmtCr(t.cur)}</p>
+      <div className="mt-1 space-y-0.5 text-[11px]">
+        <Delta v={change(t.cur, t.prevQ)} label="QoQ" />
+        <Delta v={change(t.cur, t.prevY)} label="YoY" />
+      </div>
+    </div>
+  );
+}
+
+/** Results first cut: the four headline numbers as a 2×2 grid, ₹ crore, vs last quarter and last year. */
+export function ResultsTable({ r }: { r: ResultsCard }) {
+  const mCur = r.revenue.cur && r.ebitda.cur != null ? (r.ebitda.cur / r.revenue.cur) * 100 : null;
+  const mY = r.revenue.prevY && r.ebitda.prevY != null ? (r.ebitda.prevY / r.revenue.prevY) * 100 : null;
+  return (
+    <div className="mt-2.5">
+      <div className="grid grid-cols-2 gap-2" role="group" aria-label={`Results in ₹ crore, ${r.basis}`}>
+        <Tile label="Revenue" t={r.revenue} />
+        <Tile label={r.ebitdaLabel} t={r.ebitda} />
+        <Tile label="PBT" t={r.pbt} />
+        <Tile label="PAT" t={r.pat} />
+      </div>
+      <p className="mt-2 text-[11.5px] text-dim num">
+        ₹ crore, {r.basis}
+        {!r.isLender && mCur != null && (
+          <>
+            {" "}
+            · EBITDA margin {mCur.toFixed(1)}%{mY != null && <> vs {mY.toFixed(1)}% a year ago</>}
+          </>
+        )}
+      </p>
+      {r.exceptional && <p className="mt-1 text-[12px] font-semibold text-flag">{r.exceptional}</p>}
       {r.check && (
-        <p className={clsx("mt-1 text-[11px]", r.check.agrees ? "text-dim" : "text-down")}>
+        <p className={clsx("mt-1 text-[11.5px] font-semibold", r.check.agrees ? "text-up" : "text-down")}>
           {r.check.agrees ? "✓ " : "⚠ "}
           {r.check.note}
         </p>

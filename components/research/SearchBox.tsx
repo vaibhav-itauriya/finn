@@ -51,7 +51,7 @@ export function SearchBox() {
         placeholder="Company or NSE symbol, e.g. Kaynes"
         autoComplete="off"
         autoCapitalize="characters"
-        className="w-full rounded-xl border border-rule bg-sheet px-4 py-3.5 text-[16px] outline-none focus:border-ink"
+        className="card w-full px-4 py-3.5 text-[16px] outline-none focus:ring-2 focus:ring-brand"
       />
       {hits.length > 0 && (
         <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-rule bg-sheet shadow-lg">

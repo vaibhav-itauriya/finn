@@ -8,6 +8,7 @@ import type { Ledger, Outcome, Thesis } from "@/lib/pull/ledger";
 import type { NumbersView, Signal } from "@/lib/pull/numbers";
 import { Bars } from "../Sparkline";
 import { Cite } from "./Cite";
+import { AppHeader } from "../AppHeader";
 import { fmtCr, fmtPct } from "@/lib/client/format";
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -29,6 +30,7 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
   const [err, setErr] = useState<string | null>(null);
   const [judging, setJudging] = useState<Status>(initial?.ledger && initial?.thesis ? "done" : "idle");
   const started = useRef(false);
+  const [tab, setTab] = useState<"overview" | "promises" | "financials" | "calls">("overview");
 
   const judge = async (ok: CallExtract[]) => {
     setJudging("loading");
@@ -99,55 +101,108 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
       </main>
     );
 
+  const TABS = [
+    { k: "overview", label: "Overview" },
+    { k: "promises", label: "Promises" },
+    { k: "financials", label: "Financials" },
+    { k: "calls", label: "Calls & Ask" },
+  ] as const;
+
   return (
     <main className="pb-6">
-      <header className="px-4 pt-[max(16px,env(safe-area-inset-top))]">
+      <AppHeader />
+      <header className="px-4 pt-1">
         <Back />
         {numbers ? (
-          <>
-            <h1 className="mt-4 text-[30px] leading-[1.05] font-semibold tracking-[-0.025em]">{numbers.header.name}</h1>
-            <p className="mt-1 text-[13px] text-dim num">
-              {[ticker, numbers.header.sector, numbers.header.price && `₹${numbers.header.price.replace(/^₹\s*/, "")}`, numbers.header.mcap && `M.cap ${numbers.header.mcap.replace(/^₹\s*/, "₹")}`, numbers.header.pe && `P/E ${numbers.header.pe}`]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-          </>
+          <div className="card mt-2 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-[20px] font-extrabold leading-tight tracking-tight">{numbers.header.name}</h1>
+                <p className="mt-0.5 text-[12px] text-dim">
+                  {ticker}
+                  {numbers.header.sector ? ` · ${numbers.header.sector}` : ""}
+                </p>
+              </div>
+              {numbers.header.price && <p className="shrink-0 text-[18px] font-extrabold num">₹{numbers.header.price.replace(/^₹\s*/, "")}</p>}
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+              {[
+                ["M.cap", numbers.header.mcap?.replace(/^₹\s*/, "₹").replace(" Cr.", " Cr")],
+                ["P/E", numbers.header.pe],
+                [numbers.header.isLender ? "ROE" : "ROCE", numbers.header.isLender ? numbers.header.roe : numbers.header.roce],
+              ].map(([l, v]) => (
+                <div key={l} className="rounded-lg bg-raise px-2 py-1.5">
+                  <p className="text-dim">{l}</p>
+                  <p className="mt-0.5 text-[12.5px] font-bold num">{v || "–"}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
-          <>
-            <h1 className="mt-4 text-[30px] font-semibold tracking-tight">{ticker}</h1>
+          <div className="card mt-2 p-4">
+            <h1 className="text-[20px] font-extrabold tracking-tight">{ticker}</h1>
             <p className="mt-1 text-[13px] text-dim">Fetching financials…</p>
-          </>
+          </div>
         )}
       </header>
 
       {/* Progress: show the work while it happens */}
       {transcripts.length > 0 && judging !== "done" && (
-        <section className="mx-4 mt-5 rounded-xl border border-rule bg-sheet p-4 text-[13px]" aria-live="polite">
-          <p className="font-medium">Reading the last {transcripts.length} earnings calls</p>
+        <section className="card mx-4 mt-3 p-4 text-[13px]" aria-live="polite">
+          <p className="font-bold">Reading the last {transcripts.length} earnings calls</p>
           <ul className="mt-2 space-y-1">
             {transcripts.map((t, i) => (
               <li key={t.url} className="flex justify-between">
                 <span>{calls[i]?.quarter ?? t.label} call</span>
-                <span className={clsx(callStatus[i] === "done" ? "text-up" : callStatus[i] === "error" ? "text-down" : "text-dim")}>
+                <span className={clsx("font-semibold", callStatus[i] === "done" ? "text-up" : callStatus[i] === "error" ? "text-down" : "text-dim")}>
                   {callStatus[i] === "done" ? `${calls[i]?.guidance.length ?? 0} promises found` : callStatus[i] === "error" ? "couldn't read" : "reading…"}
                 </span>
               </li>
             ))}
           </ul>
           {judging === "loading" && <p className="mt-2 text-dim">Checking promises against reported numbers. This takes 20 to 40 seconds.</p>}
-          {judging === "error" && <p className="mt-2 text-down">Couldn&apos;t judge this one. The numbers below are still complete.</p>}
+          {judging === "error" && <p className="mt-2 text-down">Couldn&apos;t judge this one. The financials tab is still complete.</p>}
         </section>
       )}
 
-      {ledger && <Verdict ledger={ledger} />}
-      {thesis && <BullBear thesis={thesis} />}
-      {ledger && <Promises ledger={ledger} />}
-      {ledger && ledger.divergences.length > 0 && <Divergences ledger={ledger} />}
-      {ledger && ledger.currentGuidance.length > 0 && <Guidance ledger={ledger} />}
-      {numbers && <Numbers n={numbers} />}
-      {thesis?.business && <Business thesis={thesis} />}
-      {doneCalls.length > 0 && <Ask ticker={ticker} />}
-      {doneCalls.length > 0 && <Tone calls={doneCalls} />}
+      <div className="sticky top-0 z-20 mt-3 bg-paper/95 py-2 backdrop-blur">
+        <div className="scroll-x flex gap-2 overflow-x-auto px-4" role="tablist" aria-label="Research sections">
+          {TABS.map((t) => (
+            <button
+              key={t.k}
+              role="tab"
+              aria-selected={tab === t.k}
+              onClick={() => setTab(t.k)}
+              className={clsx("shrink-0 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold", tab === t.k ? "bg-brand text-brand-ink" : "bg-sheet text-dim shadow-[inset_0_0_0_1px_rgb(var(--rule))]")}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "overview" && (
+        <>
+          {ledger && <Verdict ledger={ledger} />}
+          {thesis && <BullBear thesis={thesis} />}
+          {thesis?.business && <Business thesis={thesis} />}
+          {!ledger && !thesis && numbers && <p className="mx-4 mt-4 text-[13px] text-dim">The verdict appears once the calls are read. Financials are ready now.</p>}
+        </>
+      )}
+      {tab === "promises" && (
+        <>
+          {ledger ? <Promises ledger={ledger} /> : <p className="mx-4 mt-4 text-[13px] text-dim">Promises appear once the calls are read.</p>}
+          {ledger && ledger.divergences.length > 0 && <Divergences ledger={ledger} />}
+          {ledger && ledger.currentGuidance.length > 0 && <Guidance ledger={ledger} />}
+        </>
+      )}
+      {tab === "financials" && numbers && <Numbers n={numbers} />}
+      {tab === "calls" && (
+        <>
+          {doneCalls.length > 0 && <Ask ticker={ticker} />}
+          {doneCalls.length > 0 && <Tone calls={doneCalls} />}
+        </>
+      )}
 
       <Sources ticker={ticker} transcripts={transcripts} calls={doneCalls} numbers={numbers} verified={verified} total={totalQuotes} generatedAt={initial?.generatedAt} />
     </main>
@@ -156,7 +211,7 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
 
 function Back() {
   return (
-    <Link href="/research" className="text-[13px] text-slate font-medium">
+    <Link href="/research" className="text-[12.5px] font-semibold text-brand">
       ‹ Research
     </Link>
   );
@@ -184,8 +239,8 @@ function Verdict({ ledger }: { ledger: Ledger }) {
   for (const r of ledger.rows) if (r.outcome in c) c[r.outcome] += 1;
   const judged = c.delivered + c.missed + c.partly + c.dropped;
   return (
-    <section className="mt-6 px-4">
-      <p className="text-[34px] leading-[1.05] font-semibold tracking-[-0.03em]">
+    <section className="card mx-4 mt-3 p-4">
+      <p className="text-[26px] leading-[1.1] font-extrabold tracking-tight">
         Kept {c.delivered} of {judged} {judged === 1 ? "promise" : "promises"}
         {c.partly ? `, ${c.partly} partly` : ""}.
       </p>
@@ -207,7 +262,7 @@ function Verdict({ ledger }: { ledger: Ledger }) {
 
 function BullBear({ thesis }: { thesis: Thesis }) {
   return (
-    <section className="mt-8 px-4 grid gap-5">
+    <section className="card mx-4 mt-3 grid gap-5 p-4">
       {(["bull", "bear"] as const).map((side) => (
         <div key={side}>
           <h2 className={clsx("text-[13px] font-semibold", side === "bull" ? "text-up" : "text-down")}>{side === "bull" ? "Bull case" : "Bear case"}</h2>
@@ -241,10 +296,10 @@ function Promises({ ledger }: { ledger: Ledger }) {
   // Broken promises first: that is what changes a view on management.
   const rows = [...ledger.rows].sort((a, b) => (RANK[a.outcome] ?? 9) - (RANK[b.outcome] ?? 9));
   return (
-    <section className="mt-9">
+    <section className="mt-4">
       <H2>Promise ledger</H2>
       <p className="px-4 mt-1 text-[12px] text-dim">What management said on earlier calls, and what happened. Tap a row for the receipts.</p>
-      <ul className="mt-3 divide-y divide-rule border-y border-rule bg-sheet">
+      <ul className="card mx-4 mt-3 divide-y divide-rule overflow-hidden">
         {rows.map((r, i) => (
           <li key={i}>
             <button className="w-full px-4 py-3 text-left" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}>
@@ -281,7 +336,7 @@ function Promises({ ledger }: { ledger: Ledger }) {
 
 function Divergences({ ledger }: { ledger: Ledger }) {
   return (
-    <section className="mt-9">
+    <section className="card mx-4 mt-4 py-4">
       <H2>Story vs numbers</H2>
       <ul className="mt-3 space-y-4 px-4">
         {ledger.divergences.map((d, i) => (
@@ -305,7 +360,7 @@ function Divergences({ ledger }: { ledger: Ledger }) {
 
 function Guidance({ ledger }: { ledger: Ledger }) {
   return (
-    <section className="mt-9">
+    <section className="card mx-4 mt-4 py-4">
       <H2>Guidance on the table now</H2>
       <ul className="mt-2 px-4 space-y-2">
         {ledger.currentGuidance.map((g, i) => (
@@ -339,10 +394,10 @@ function Numbers({ n }: { n: NumbersView }) {
   const q = n.quarters;
   const short = (c: string) => c.replace(/^(\w{3}) 20(\d\d)$/, "$1 '$2");
   return (
-    <section className="mt-9">
+    <section className="mt-4">
       <H2>Numbers</H2>
       <p className="px-4 mt-1 text-[12px] text-dim">From exchange filings via Screener, {n.header.basis}. Computed in code, no model involved.</p>
-      <dl className="mt-3 mx-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-rule bg-rule">
+      <dl className="card mx-4 mt-3 grid grid-cols-2 gap-px overflow-hidden bg-rule">
         {n.snapshot.map((s) => (
           <div key={s.label} className="bg-sheet p-3">
             <dt className="text-[11px] text-dim">{s.label}</dt>
@@ -352,7 +407,7 @@ function Numbers({ n }: { n: NumbersView }) {
         ))}
       </dl>
 
-      <div className="mt-6 px-4">
+      <div className="card mx-4 mt-3 p-4">
         <h3 className="text-[14px] font-medium">Last 8 quarters</h3>
         <div className="mt-2">
           <Bars values={q.revenue} labels={q.cols} height={56} />
@@ -384,7 +439,7 @@ function Numbers({ n }: { n: NumbersView }) {
         </table>
       </div>
 
-      <div className="mt-7 px-4">
+      <div className="card mx-4 mt-3 p-4">
         <h3 className="text-[14px] font-medium">Trajectory</h3>
         <p className="text-[12px] text-dim">Revenue by year, ₹ cr: {fmtCr(n.trajectory.revenue[0])} in {n.trajectory.cols[0]} to {fmtCr(n.trajectory.revenue.at(-1) ?? null)} in {n.trajectory.cols.at(-1)}</p>
         <div className="mt-2">
@@ -394,7 +449,7 @@ function Numbers({ n }: { n: NumbersView }) {
       </div>
 
       {!n.header.isLender && (
-        <div className="mt-7 px-4">
+        <div className="card mx-4 mt-3 p-4">
           <h3 className="text-[14px] font-medium">Balance sheet</h3>
           <table className="mt-2 w-full text-[12px] num">
             <thead>
@@ -430,7 +485,7 @@ function Numbers({ n }: { n: NumbersView }) {
       )}
 
       {!n.header.isLender && (
-        <div className="mt-7 px-4">
+        <div className="card mx-4 mt-3 p-4">
           <h3 className="text-[14px] font-medium">Cash quality</h3>
           <table className="mt-2 w-full text-[12px] num">
             <thead>
@@ -471,13 +526,13 @@ function Numbers({ n }: { n: NumbersView }) {
 function Business({ thesis }: { thesis: Thesis }) {
   const b = thesis.business!;
   return (
-    <section className="mt-9 px-4">
+    <section className="card mx-4 mt-3 p-4">
       <h2 className="text-[13px] font-semibold text-dim">What the business is, in management&apos;s words</h2>
       <p className="mt-2 text-[14px] leading-snug">
         {b.summary} <Cite c={b.cite} />
       </p>
       {b.segments.length > 0 && (
-        <ul className="mt-3 divide-y divide-rule border-y border-rule text-[13px]">
+        <ul className="mt-3 divide-y divide-rule text-[13px]">
           {b.segments.map((s) => (
             <li key={s.name} className="py-2 flex gap-3">
               <span className="font-medium w-[38%] shrink-0">{s.name}</span>
@@ -495,7 +550,7 @@ function Business({ thesis }: { thesis: Thesis }) {
 
 function Tone({ calls }: { calls: CallExtract[] }) {
   return (
-    <section className="mt-9 px-4">
+    <section className="card mx-4 mt-3 p-4">
       <h2 className="text-[13px] font-semibold text-dim">Tone and pushback, call by call</h2>
       <ol className="mt-2 space-y-3">
         {calls.map((c) => (
@@ -543,7 +598,7 @@ function Ask({ ticker }: { ticker: string }) {
       return c ? <Cite key={i} c={{ quarter: c.quarter, page: c.page, url: c.url }} /> : <span key={i}>{part}</span>;
     });
   return (
-    <section className="mt-9 px-4">
+    <section className="card mx-4 mt-3 p-4">
       <h2 className="text-[13px] font-semibold text-dim">Ask the transcripts</h2>
       <form onSubmit={submit} className="mt-2 flex gap-2">
         <label htmlFor="ask" className="sr-only">
@@ -584,12 +639,12 @@ function Sources({
   generatedAt?: string;
 }) {
   return (
-    <section className="mt-10 mx-4 border-t border-rule pt-4 text-[12px] text-dim leading-snug">
+    <section className="mx-4 mt-6 text-[11.5px] leading-snug text-dim">
       <p>
         Sources: {ticker}&apos;s own earnings-call transcripts ({calls.map((c) => `${c.quarter}, ${c.pages} pages`).join("; ") || transcripts.map((t) => t.label).join(", ")}) and
         reported financials{" "}
         {numbers && (
-          <a href={numbers.header.screenerUrl} className="text-slate" target="_blank" rel="noreferrer">
+          <a href={numbers.header.screenerUrl} className="text-brand" target="_blank" rel="noreferrer">
             via Screener
           </a>
         )}

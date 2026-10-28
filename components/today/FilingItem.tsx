@@ -5,8 +5,9 @@ import { useState } from "react";
 import clsx from "clsx";
 import type { Filing } from "@/lib/types";
 import { CATEGORY_LABEL } from "@/lib/push/classify";
-import { istTime, relTime } from "@/lib/client/format";
+import { RelTime } from "../RelTime";
 import { ResultsTable } from "./ResultsTable";
+import { SendToTelegram } from "../telegram/TelegramBanner";
 
 interface Props {
   f: Filing;
@@ -32,30 +33,24 @@ export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMu
   };
 
   const e = f.enrichment;
+  const lead = variant === "lead";
   return (
-    <li className="relative overflow-hidden">
-      <motion.div style={{ opacity: doneOpacity }} className="absolute inset-0 flex items-center pl-5 text-up text-[13px] font-semibold bg-up/10" aria-hidden>
+    <li className="relative overflow-hidden rounded-[14px]" id={f.id}>
+      <motion.div style={{ opacity: doneOpacity }} className="absolute inset-0 flex items-center rounded-[14px] bg-up/15 pl-5 text-[13px] font-bold text-up" aria-hidden>
         Done
       </motion.div>
-      <motion.div style={{ opacity: muteOpacity }} className="absolute inset-0 flex items-center justify-end pr-5 text-dim text-[13px] font-semibold bg-ink/5" aria-hidden>
+      <motion.div style={{ opacity: muteOpacity }} className="absolute inset-0 flex items-center justify-end rounded-[14px] bg-raise pr-5 text-[13px] font-bold text-dim" aria-hidden>
         Mute {CATEGORY_LABEL[f.category].toLowerCase()} for {f.ticker}
       </motion.div>
-      <motion.article
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.6}
-        onDragEnd={onDragEnd}
-        style={{ x }}
-        className={clsx("relative bg-sheet touch-pan-y", variant === "lead" ? "px-4 py-4" : "px-4 py-3")}
-      >
-        {variant === "lead" && <span className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r bg-marigold" aria-hidden />}
-        <header className="flex items-baseline gap-2">
-          <Link href={`/research/${f.ticker}`} className="font-semibold text-[15px] tracking-tight hover:underline">
+      <motion.article drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.6} onDragEnd={onDragEnd} style={{ x }} className="card relative touch-pan-y p-3.5">
+        {lead && <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-r bg-brand" aria-hidden />}
+        <header className="flex items-center gap-2">
+          <Link href={`/research/${f.ticker}`} className="text-[14px] font-extrabold tracking-tight">
             {f.ticker}
           </Link>
-          <span className="text-[12px] text-dim">{CATEGORY_LABEL[f.category]}</span>
-          <time className="ml-auto text-[12px] text-dim num" dateTime={f.ts} title={new Date(f.ts).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}>
-            {relTime(f.ts).endsWith("ago") ? relTime(f.ts) : `${relTime(f.ts)}, ${istTime(f.ts)}`}
+          <span className={clsx("rounded-md px-1.5 py-[1px] text-[11px] font-bold", lead ? "bg-brand-soft text-brand" : "bg-raise text-dim")}>{CATEGORY_LABEL[f.category]}</span>
+          <time className="ml-auto text-[11.5px] text-dim num" dateTime={f.ts} title={new Date(f.ts).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}>
+            <RelTime iso={f.ts} withTime />
           </time>
         </header>
 
@@ -67,10 +62,10 @@ export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMu
           <div>
             {e?.kind === "results" && <ResultsTable r={e} />}
             {e?.kind === "management" && <Management f={f} />}
-            {!e && f.headline && f.headline !== f.title && <p className="mt-1.5 text-[13px] text-dim leading-snug line-clamp-4">{f.headline}</p>}
+            {!e && f.headline && f.headline !== f.title && <p className="mt-1.5 text-[12.5px] leading-snug text-dim line-clamp-4">{f.headline}</p>}
             {related.length > 0 && (
               <div className="mt-2.5">
-                <button onClick={() => setShowRel((x) => !x)} className="text-[12px] text-dim" aria-expanded={showRel}>
+                <button onClick={() => setShowRel((v) => !v)} className="text-[12px] font-semibold text-dim" aria-expanded={showRel}>
                   {related.length} related {related.length === 1 ? "filing" : "filings"} {showRel ? "▴" : "▾"}
                 </button>
                 {showRel && (
@@ -78,37 +73,38 @@ export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMu
                     {related.map((r) => (
                       <li key={r.id} className="text-[12px] leading-snug">
                         {r.pdf ? (
-                          <a href={r.pdf} target="_blank" rel="noreferrer" className="text-slate">
+                          <a href={r.pdf} target="_blank" rel="noreferrer" className="text-brand">
                             {r.title}
                           </a>
                         ) : (
                           r.title
                         )}
-                        <span className="text-dim"> · {relTime(r.ts)}</span>
+                        <span className="text-dim"> · <RelTime iso={r.ts} /></span>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
             )}
-            <footer className="mt-3 flex items-center gap-4 text-[12px]">
+            <footer className="mt-3 flex items-center gap-3.5 border-t border-rule pt-2.5 text-[12px]">
               {f.pdf && (
-                <a href={f.pdf} target="_blank" rel="noreferrer" className="text-slate font-medium">
-                  Open filing
+                <a href={f.pdf} target="_blank" rel="noreferrer" className="font-semibold text-brand">
+                  Filing
                 </a>
               )}
-              <Link href={`/research/${f.ticker}`} className="text-slate font-medium">
-                Research {f.ticker}
+              <Link href={`/research/${f.ticker}`} className="font-semibold text-brand">
+                Research
               </Link>
-              <button onClick={() => setWhy((w) => !w)} className="text-dim">
-                Why here?
+              <SendToTelegram body={{ kind: "filing", id: f.id }} />
+              <button onClick={() => setWhy((w) => !w)} className="font-semibold text-dim">
+                Why?
               </button>
-              <button onClick={() => onDone(f)} className="ml-auto rounded-full border border-rule px-3 py-1 font-medium">
+              <button onClick={() => onDone(f)} className="ml-auto rounded-full bg-raise px-3 py-1 font-bold">
                 Done
               </button>
             </footer>
             {why && (
-              <p className="mt-2 text-[12px] text-dim">
+              <p className="mt-2 text-[11.5px] leading-snug text-dim">
                 Score {f.score}/100. {f.reason}. Sorted by {f.classifiedBy === "rules" ? "exchange metadata rules" : "the model, because no rule matched"}. BSE: {f.bseCategory}
                 {f.bseSub ? ` / ${f.bseSub}` : ""}.
               </p>
@@ -124,48 +120,47 @@ function Headline({ f }: { f: Filing }) {
   const e = f.enrichment;
   if (e?.kind === "results")
     return (
-      <p className="mt-1 text-[15px] leading-snug">
-        <span className="font-medium">{e.period}</span>
-        <span className="text-dim"> · </span>
-        {e.verdict}
+      <p className="mt-1.5 text-[14px] leading-snug">
+        <span className="font-bold">{e.period.split(" (")[0]}</span> <span className="text-dim">{e.period.match(/\((.*)\)/)?.[1]}</span>
+        <span className="block font-medium">{e.verdict}</span>
       </p>
     );
   if (e?.kind === "management") {
     const p = e.people[0];
     const verb = { appointed: "appointed", resigned: "resigns", retired: "retires", redesignated: "redesignated", other: "changes role" }[p.change];
     return (
-      <p className="mt-1 text-[15px] leading-snug">
-        {e.people.length > 1 ? `${e.people.length} changes: ` : ""}
-        <span className="font-medium">{p.name}</span> {verb} as {p.role}
+      <p className="mt-1.5 text-[14px] leading-snug">
+        <span className="font-bold">{p.name}</span> {verb} as {p.role}
+        {e.people.length > 1 && <span className="text-dim"> · +{e.people.length - 1} more</span>}
       </p>
     );
   }
-  if (e?.kind === "summary") return <p className="mt-1 text-[15px] leading-snug">{e.line}</p>;
-  return <p className="mt-1 text-[15px] leading-snug">{f.title}</p>;
+  if (e?.kind === "summary") return <p className="mt-1.5 text-[14px] leading-snug">{e.line}</p>;
+  return <p className="mt-1.5 text-[14px] leading-snug">{f.title}</p>;
 }
 
 function Management({ f }: { f: Filing }) {
   const e = f.enrichment;
   if (e?.kind !== "management") return null;
   return (
-    <div className="mt-2 space-y-3">
+    <div className="mt-2.5 space-y-2.5">
       {e.people.map((p) => (
-        <div key={p.name} className="text-[13px]">
+        <div key={p.name} className="rounded-xl bg-raise p-3 text-[12.5px]">
           <p>
-            <span className="font-medium">{p.name}</span>
+            <span className="font-bold">{p.name}</span>
             <span className="text-dim">
               {" "}
               · {p.role} · {p.change}
               {p.effective ? ` w.e.f. ${p.effective}` : ""}
             </span>
           </p>
-          {p.bio && <p className="mt-0.5 leading-snug">{p.bio}</p>}
-          {p.previously && p.previously.length > 0 && <p className="mt-0.5 text-dim leading-snug">Previously: {p.previously.join("; ")}</p>}
+          {p.bio && <p className="mt-1 leading-snug">{p.bio}</p>}
+          {p.previously && p.previously.length > 0 && <p className="mt-1 leading-snug text-dim">Previously: {p.previously.join("; ")}</p>}
           {p.sources && p.sources.length > 0 && (
-            <p className="mt-0.5 text-[11px] text-dim">
+            <p className="mt-1 text-[11px] text-dim">
               Sources:{" "}
               {p.sources.map((s, i) => (
-                <a key={i} href={s.url} target="_blank" rel="noreferrer" className="text-slate mr-2">
+                <a key={i} href={s.url} target="_blank" rel="noreferrer" className="mr-2 text-brand">
                   {s.title}
                 </a>
               ))}
@@ -173,7 +168,7 @@ function Management({ f }: { f: Filing }) {
           )}
         </div>
       ))}
-      {e.reason && <p className="text-[13px] text-dim">Stated reason: {e.reason}</p>}
+      {e.reason && <p className="text-[12.5px] text-dim">Stated reason: {e.reason}</p>}
     </div>
   );
 }

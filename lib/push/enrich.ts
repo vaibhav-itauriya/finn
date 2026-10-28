@@ -302,11 +302,13 @@ export async function enrichManagement(f: Filing): Promise<{ card: MgmtCard; sen
           tier: "search",
           parts: [
             {
-              text: `Search the web (LinkedIn, company websites, business press) for the professional background of ${p.name}, newly ${p.change} as ${p.role} of ${f.company} (India).
-Reply with JSON only: {"bio": "<max 30 words: what they are known for and the most relevant previous role>", "previously": ["<Role, Company, years if known>"]} with up to 3 prior roles, most recent first. If you cannot find this specific person, reply {"bio": null, "previously": []}.`,
+              text: `A management change was announced at ${f.company} (India): ${p.name} is ${p.change} as ${p.role}.
+Use web search (LinkedIn, the company's site, earlier press releases) to write a concise professional bio of this specific person.
+Rules: at most 2 sentences, 35 words. Lead with their immediate previous role and employer, then the major companies or functions behind them and any pedigree that matters for this role. No generic praise ("seasoned", "visionary", "dynamic"). If you cannot find this exact person, say so with null.
+Reply with JSON only: {"bio": "..." or null, "previously": ["<Role, Company, years if known>", ...up to 3, most recent first]}.`,
             },
           ],
-          cacheId: `bio-v2|${p.name}|${f.company}`,
+          cacheId: `bio-v3|${p.name}|${f.company}`,
           maxOutputTokens: 700,
         });
         const b = parseJSON<{ bio: string | null; previously: string[] }>(r.text);
@@ -338,7 +340,7 @@ const OPINION_SCHEMA = {
   required: ["category", "materiality", "line"],
 };
 
-const OPINION_PROMPT = (f: Filing) => `You triage stock-exchange filings for a portfolio manager who owns ${f.company} (${f.ticker}).
+const OPINION_PROMPT = (f: Filing) => `You are a ruthless equity research analyst triaging stock-exchange filings for a portfolio manager who owns ${f.company} (${f.ticker}). Your job is to filter noise, not to summarise.
 Read the filing and return: category, materiality (0-100; results/large M&A/CEO exit ~85+, routine compliance <15) and "line": the single most decision-relevant fact in at most 20 words, with numbers. No filler like "the company announced"; start with the fact. If there is nothing beyond the title, line = null.
 Exchange subject: ${f.title}
 Company's gist: ${f.headline.slice(0, 600)}`;

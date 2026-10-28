@@ -13,7 +13,7 @@ export function Cite({ c, quote }: { c?: C | null; quote?: boolean }) {
           href={`${c.url}${c.page ? `#page=${c.page}` : ""}`}
           target="_blank"
           rel="noreferrer"
-          className="whitespace-nowrap rounded-[4px] bg-slate/10 px-1.5 py-[1px] text-[11px] font-medium text-slate"
+          className="whitespace-nowrap rounded-[4px] bg-brand-soft px-1.5 py-[1px] text-[11px] font-medium text-brand"
           title={c.quote || undefined}
         >
           {label}

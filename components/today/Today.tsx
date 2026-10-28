@@ -1,7 +1,7 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import type { Digest, Filing } from "@/lib/types";
 import { moveAlerts, type MoveAlert } from "@/lib/client/alerts";
@@ -11,6 +11,9 @@ import { CATEGORY_LABEL } from "@/lib/push/classify";
 import { FilingItem } from "./FilingItem";
 import { bundle, type Bundle } from "@/lib/client/bundle";
 import { Sparkline } from "../Sparkline";
+import { AppHeader } from "../AppHeader";
+import { SendToTelegram } from "../telegram/TelegramBanner";
+import { Brief } from "./Brief";
 
 type WindowKey = "since" | "24h" | "3d" | "7d" | "30d";
 const WINDOWS: { k: WindowKey; label: string; hours?: number }[] = [
@@ -26,6 +29,15 @@ export function Today({ digest }: { digest: Digest }) {
   const [cleared, setCleared] = useCleared();
   const lastVisit = useLastVisit();
   const [win, setWin] = useState<WindowKey>("since");
+  const [autoBrief, setAutoBrief] = useState(false);
+  // Action keys deep-link here with ?w=24h; the page itself stays static.
+  useEffect(() => {
+    const w = new URLSearchParams(window.location.search).get("w");
+    if (w && WINDOWS.some((x) => x.k === w)) {
+      setWin(w as WindowKey);
+      setAutoBrief(w === "24h");
+    }
+  }, []);
   const [showFolded, setShowFolded] = useState(false);
   const [toast, setToast] = useState<{ text: string; undo: () => void } | null>(null);
   const [showCleared, setShowCleared] = useState(false);
@@ -85,39 +97,23 @@ export function Today({ digest }: { digest: Digest }) {
 
   return (
     <main>
-      <header className="px-4 pt-[max(16px,env(safe-area-inset-top))]">
-        <div className="flex items-center justify-between text-[12px] text-dim">
-          <span className="font-semibold text-ink tracking-tight text-[15px]">FINN</span>
-          <span className="num">
-            {digest.portfolio.length} holdings · updated {relTime(digest.engine.generatedAt)}
-          </span>
-        </div>
-
-        <h1 className="mt-5 text-[40px] leading-[1.02] font-semibold tracking-[-0.03em]">
-          {needs === 0 ? (
-            "You're caught up."
-          ) : (
-            <>
-              {needs} {needs === 1 ? "thing needs" : "things need"} you.
-            </>
-          )}
+      <AppHeader />
+      <header className="px-4 pt-2">
+        <h1 className="text-[26px] font-extrabold leading-tight tracking-tight">
+          {needs === 0 ? "You're caught up." : <>{needs} {needs === 1 ? "thing needs" : "things need"} you</>}
         </h1>
-        <p className="mt-2 text-[14px] text-dim leading-snug">
+        <p className="mt-1 text-[13px] leading-snug text-dim">
           {inWindow.length} filings and {digest.prices.length} price charts read {win === "since" ? "since your last visit" : `in the last ${WINDOWS.find((w) => w.k === win)!.label}`}.{" "}
           {folded.length > 0 && <>{folded.length} routine ones folded away.</>}
         </p>
-
-        <div className="mt-4 -mx-4 px-4 flex gap-2 overflow-x-auto scroll-x" role="tablist" aria-label="Time window">
+        <div className="scroll-x -mx-4 mt-3 flex gap-2 overflow-x-auto px-4" role="tablist" aria-label="Time window">
           {WINDOWS.map((w) => (
             <button
               key={w.k}
               role="tab"
               aria-selected={win === w.k}
               onClick={() => setWin(w.k)}
-              className={clsx(
-                "shrink-0 rounded-full px-3 py-1.5 text-[13px] border",
-                win === w.k ? "bg-ink text-paper border-ink" : "border-rule text-dim",
-              )}
+              className={clsx("shrink-0 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold", win === w.k ? "bg-brand text-brand-ink" : "bg-sheet text-dim shadow-[inset_0_0_0_1px_rgb(var(--rule))]")}
             >
               {w.label}
             </button>
@@ -125,12 +121,14 @@ export function Today({ digest }: { digest: Digest }) {
         </div>
       </header>
 
+      <Brief hours={WINDOWS.find((w) => w.k === win)?.hours ?? Math.max(24, Math.round((generated - since.getTime()) / 3600e3))} auto={autoBrief} />
+
       {/* What needs you: material filings + threshold breaches */}
       <section className="mt-5" aria-labelledby="needs">
         <h2 id="needs" className="sr-only">
           Needs you
         </h2>
-        <ul className="divide-y divide-rule border-y border-rule">
+        <ul className="mx-4 space-y-2.5">
           <AnimatePresence initial={false}>
             {lead.map((b, i) => (
               <motion.div key={b.key} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}>
@@ -138,25 +136,32 @@ export function Today({ digest }: { digest: Digest }) {
               </motion.div>
             ))}
           </AnimatePresence>
-          {openMoves.map((m) => (
-            <MoveItem key={`${m.ticker}${m.d}`} m={m} volX={rules.volMultiple} moveAbs={rules.moveAbs} onDone={() => clear(`mv:${m.ticker}:${m.d}`, `${m.ticker} move`)} />
-          ))}
         </ul>
+        {openMoves.length > 0 && (
+          <>
+            <h2 className="mt-5 px-4 text-[13px] font-bold text-dim">Unusual moves at your thresholds</h2>
+            <ul className="mx-4 mt-2 space-y-2.5">
+              {openMoves.map((m) => (
+                <MoveItem key={`${m.ticker}${m.d}`} m={m} volX={rules.volMultiple} moveAbs={rules.moveAbs} onDone={() => clear(`mv:${m.ticker}:${m.d}`, `${m.ticker} move`)} />
+              ))}
+            </ul>
+          </>
+        )}
         {needs === 0 && (
-          <div className="px-4 py-8 text-center">
+          <div className="card mx-4 px-4 py-8 text-center">
             <span className="stamp text-up">Clear</span>
             <p className="mt-3 text-[14px] text-dim">
               Nothing material {win === "since" ? "since you last looked" : "in this window"}. {leadAll.length > 0 && <>You cleared {leadAll.length}.</>}
             </p>
             {leadAll.length > 0 && (
-              <button className="mt-2 text-[13px] text-slate font-medium" onClick={() => setShowCleared((s) => !s)}>
+              <button className="mt-2 text-[13px] font-semibold text-brand" onClick={() => setShowCleared((s) => !s)}>
                 {showCleared ? "Hide cleared" : "Show what you cleared"}
               </button>
             )}
           </div>
         )}
         {showCleared && (
-          <ul className="divide-y divide-rule border-b border-rule opacity-70">
+          <ul className="mx-4 mt-2.5 space-y-2.5 opacity-70">
             {leadAll.filter(isCleared).map((b) => (
               <FilingItem key={b.key} f={b.lead} related={b.related} variant="glance" onDone={() => {}} onMute={mute} />
             ))}
@@ -166,10 +171,10 @@ export function Today({ digest }: { digest: Digest }) {
 
       {glance.length > 0 && (
         <section className="mt-7" aria-labelledby="glance">
-          <h2 id="glance" className="px-4 text-[13px] font-semibold text-dim">
+          <h2 id="glance" className="px-4 text-[13px] font-bold text-dim">
             Worth a glance <span className="font-normal">({glance.length})</span>
           </h2>
-          <ul className="mt-2 divide-y divide-rule border-y border-rule">
+          <ul className="mx-4 mt-2 space-y-2">
             {glance.map((b) => (
               <FilingItem key={b.key} f={b.lead} related={b.related} variant="glance" onDone={(x) => clear(x.id, x.ticker)} onMute={mute} />
             ))}
@@ -178,9 +183,9 @@ export function Today({ digest }: { digest: Digest }) {
       )}
 
       {folded.length > 0 && (
-        <section className="mt-7 px-4" aria-labelledby="folded">
+        <section className="card mx-4 mt-7 p-4" aria-labelledby="folded">
           <button id="folded" onClick={() => setShowFolded((s) => !s)} className="w-full text-left" aria-expanded={showFolded}>
-            <h2 className="text-[13px] font-semibold text-dim">
+            <h2 className="text-[13px] font-bold text-dim">
               Folded: {folded.length} routine {folded.length === 1 ? "filing" : "filings"} {showFolded ? "▴" : "▾"}
             </h2>
             <p className="mt-1 text-[12px] text-dim">{foldedByType.map(([k, n]) => `${k} ${n}`).join(", ")}</p>
@@ -206,7 +211,7 @@ export function Today({ digest }: { digest: Digest }) {
 
       {mutedCount > 0 && (
         <p className="mt-6 px-4 text-[12px] text-dim">
-          {mutedCount} filings hidden by your mutes. <Link href="/rules" className="text-slate">Manage</Link>
+          {mutedCount} filings hidden by your mutes. <Link href="/alerts" className="font-semibold text-brand">Manage</Link>
         </p>
       )}
 
@@ -223,7 +228,7 @@ export function Today({ digest }: { digest: Digest }) {
           >
             {toast.text}
             <button
-              className="font-semibold text-marigold"
+              className="font-bold underline underline-offset-2"
               onClick={() => {
                 toast.undo();
                 setToast(null);
@@ -243,24 +248,28 @@ function MoveItem({ m, onDone, volX, moveAbs }: { m: MoveAlert; onDone: () => vo
   if (m.kinds.includes("price")) parts.push(`${m.change > 0 ? "up" : "down"} ${Math.abs(m.change).toFixed(1)}% (your line: ${moveAbs}%)`);
   if (m.kinds.includes("volume")) parts.push(`volume ${m.volX.toFixed(1)}× its 20-day average (your line: ${volX}×)`);
   return (
-    <li className="relative bg-sheet px-4 py-3.5">
-      <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-r bg-marigold" aria-hidden />
-      <div className="flex items-baseline gap-2">
-        <Link href={`/research/${m.ticker}`} className="font-semibold text-[15px] tracking-tight hover:underline">
+    <li className="card relative p-3.5">
+      <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-r bg-flag" aria-hidden />
+      <div className="flex items-center gap-2">
+        <Link href={`/research/${m.ticker}`} className="text-[14px] font-extrabold tracking-tight">
           {m.ticker}
         </Link>
-        <span className="text-[12px] text-dim">Unusual move</span>
+        <span className="rounded-md bg-flag/15 px-1.5 py-[1px] text-[11px] font-bold text-flag">Unusual move</span>
         <span className="ml-auto text-[12px] text-dim">{istDay(m.d + "T16:00:00+05:30")}</span>
       </div>
       <div className="mt-1 flex items-center gap-3">
-        <p className="text-[15px] leading-snug flex-1">
-          Closed ₹{m.close.toLocaleString("en-IN")} <span className={m.change >= 0 ? "text-up" : "text-down"}>{fmtPct(m.change)}</span>
-          <span className="block text-[13px] text-dim">{parts.join(", ")}</span>
+        <p className="flex-1 text-[14px] leading-snug">
+          Closed <span className="font-bold num">₹{m.close.toLocaleString("en-IN")}</span> <span className={clsx("font-bold num", m.change >= 0 ? "text-up" : "text-down")}>{fmtPct(m.change)}</span>
+          <span className="block text-[12.5px] text-dim">{parts.join(", ")}</span>
         </p>
         <Sparkline values={m.spark} />
       </div>
-      <div className="mt-2 flex">
-        <button onClick={onDone} className="ml-auto rounded-full border border-rule px-3 py-1 text-[12px] font-medium">
+      <div className="mt-2.5 flex items-center gap-3.5 border-t border-rule pt-2.5 text-[12px]">
+        <Link href={`/research/${m.ticker}`} className="font-semibold text-brand">
+          Research
+        </Link>
+        <SendToTelegram body={{ kind: "move", ticker: m.ticker, d: m.d }} />
+        <button onClick={onDone} className="ml-auto rounded-full bg-raise px-3 py-1 font-bold">
           Done
         </button>
       </div>
@@ -272,7 +281,7 @@ function EngineNote({ d }: { d: Digest }) {
   const e = d.engine;
   const [open, setOpen] = useState(false);
   return (
-    <section className="mt-10 mx-4 mb-6 text-[12px] text-dim">
+    <section className="mx-4 mt-10 mb-6 text-[11.5px] leading-snug text-dim">
       <button onClick={() => setOpen((o) => !o)} className="text-left" aria-expanded={open}>
         How this was sorted: {e.byRules} of {e.filings} filings by exchange-metadata rules, {e.llmCalls} model calls, {e.cacheHits} cache hits, about $
         {e.estCostUSD.toFixed(3)} at paid rates. {open ? "▴" : "▾"}

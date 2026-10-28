@@ -27,6 +27,7 @@ export interface Holding {
   name: string;
   sector: string;
   size: "Large" | "Mid" | "Small";
+  qty?: number; // mock position size, for portfolio value and day P&L
   bse?: number; // resolved from Screener and cached
 }
 
