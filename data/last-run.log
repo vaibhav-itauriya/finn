@@ -1,45 +1,9 @@
 screener: 18/18
 prices: 18/18
-filings: 264 (237 placed by rules)
-[14s] results: 9 filings
+filings: 269 (242 placed by rules)
+[15s] results: 9 filings
 [20s] second opinion: 42 filings
-[28s] management: 8 filings
-gemini-3.8-flash: 429, waiting 4s
-gemini-3.8-flash: 429, waiting 4s
-gemini-3.8-flash: 429, waiting 8s
-gemini-3.8-flash: 429, waiting 8s
-gemini-3.8-flash: 429, waiting 12s
-gemini-3.7-flash: 429, waiting 4s
-gemini-3.8-flash: 429, waiting 12s
-gemini-3.7-flash: 429, waiting 4s
-gemini-3.7-flash: 429, waiting 8s
-gemini-3.7-flash: 429, waiting 8s
-gemini-3.7-flash: 429, waiting 12s
-gemini-3.6-flash: 429, waiting 4s
-gemini-3.7-flash: 429, waiting 12s
-gemini-3.6-flash: 429, waiting 4s
-gemini-3.6-flash: 429, waiting 8s
-gemini-3.6-flash: 429, waiting 8s
-gemini-3.6-flash: 429, waiting 12s
-gemini-3.5-flash: 429, waiting 4s
-gemini-3.6-flash: 429, waiting 12s
-gemini-3.5-flash: 429, waiting 4s
-gemini-3.5-flash: 429, waiting 8s
-gemini-3.5-flash: 429, waiting 8s
-gemini-3.5-flash: 429, waiting 12s
-gemini-3-flash-preview: 429, waiting 4s
-gemini-3.5-flash: 429, waiting 12s
-gemini-3-flash-preview: 429, waiting 4s
-gemini-3-flash-preview: 429, waiting 8s
-gemini-3-flash-preview: 429, waiting 8s
-gemini-3-flash-preview: 429, waiting 12s
-gemini-flash-latest: 429, waiting 4s
-gemini-3-flash-preview: 429, waiting 12s
-gemini-flash-latest: 429, waiting 4s
-gemini-flash-latest: 429, waiting 8s
-gemini-flash-latest: 429, waiting 8s
-gemini-flash-latest: 429, waiting 12s
-gemini-flash-latest: 429, waiting 12s
+[108s] management: 7 filings
 gemini-3.8-flash: 429, waiting 4s
 gemini-3.8-flash: 429, waiting 8s
 gemini-3.8-flash: 429, waiting 12s
@@ -58,24 +22,6 @@ gemini-3-flash-preview: 429, waiting 12s
 gemini-flash-latest: 429, waiting 4s
 gemini-flash-latest: 429, waiting 8s
 gemini-flash-latest: 429, waiting 12s
-gemini-3.8-flash: 429, waiting 4s
-gemini-3.8-flash: 429, waiting 8s
-gemini-3.8-flash: 429, waiting 12s
-gemini-3.7-flash: 429, waiting 4s
-gemini-3.7-flash: 429, waiting 8s
-gemini-3.7-flash: 429, waiting 12s
-gemini-3.6-flash: 429, waiting 4s
-gemini-3.6-flash: 429, waiting 8s
-gemini-3.6-flash: 429, waiting 12s
-gemini-3.5-flash: 429, waiting 4s
-gemini-3.5-flash: 429, waiting 8s
-gemini-3.5-flash: 429, waiting 12s
-gemini-3-flash-preview: 429, waiting 4s
-gemini-3-flash-preview: 429, waiting 8s
-gemini-3-flash-preview: 429, waiting 12s
-gemini-flash-latest: 429, waiting 4s
-gemini-flash-latest: 429, waiting 8s
-gemini-flash-latest: 429, waiting 12s
-[269s] enrichment done
-done in 269s · 264 filings · rules 237 · llm calls 10 (cache hits 58) · tokens 33364/3921 · ~$0.0113 · models {"gemini-3.5-flash-lite":6,"gemini-2.5-flash":4}
-telegram: sent 7
+[225s] enrichment done
+done in 225s · 269 filings · rules 242 · llm calls 2 (cache hits 62) · tokens 1778/1038 · ~$0.0023 · models {"gemini-3.5-flash-lite":1,"gemini-2.5-flash":1}
+telegram: sent 1
