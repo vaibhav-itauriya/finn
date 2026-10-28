@@ -1,7 +1,10 @@
-run started 2026-10-28T22:06:37.157Z
+run started 2026-10-28T22:07:20.479Z
 gemini-3.8-flash: daily quota exhausted, falling back
 gemini-3.7-flash: daily quota exhausted, falling back
 gemini-3.6-flash: daily quota exhausted, falling back
 gemini-3.5-flash: daily quota exhausted, falling back
 gemini-3-flash-preview: daily quota exhausted, falling back
 gemini-flash-latest: daily quota exhausted, falling back
+gemini-2.5-flash: daily quota exhausted, falling back
+OFSS: 2 calls, ledger 1 rows, thesis ok in 14s 
+llm calls 4, cache hits 0, tokens 22646/2401, ~$0.0032, {"gemini-3.5-flash-lite":4}
