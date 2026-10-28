@@ -4,7 +4,7 @@
 // Quotes are string-matched against the PDF text afterwards: anything the model can't
 // point to verbatim is marked unverified, which is how we keep the "no AI slop" promise.
 import { cached, cacheKey } from "../cache";
-import { llm, parseJSON } from "../llm/router";
+import { llm, parseJSON, pdfPart } from "../llm/router";
 import { fetchPdf, pdfPages } from "../sources/pdf";
 import type { ScreenerCompany } from "../sources/screener";
 
@@ -64,9 +64,34 @@ export function pickTranscripts(sc: ScreenerCompany, n = 4, extra: TranscriptRef
   return merged.sort((a, b) => labelTime(b.label) - labelTime(a.label)).slice(0, n);
 }
 
-/** Page texts for a PDF, cached (re-used by extraction and by the Ask box). */
+/**
+ * Page texts for a PDF, cached forever (re-used by extraction, quote checks and the Ask box).
+ * Some companies file scanned transcripts with no text layer; those are transcribed once by the
+ * cheap model (it reads PDFs natively), so quote verification and Ask keep working.
+ */
 export async function transcriptPages(url: string): Promise<string[]> {
-  const { value } = await cached("pages", cacheKey("pages-v1", url), async () => pdfPages(await fetchPdf(url)));
+  const { value } = await cached("pages", cacheKey("pages-v2", url), async () => {
+    const bytes = await fetchPdf(url);
+    const pages = await pdfPages(bytes);
+    const chars = pages.reduce((n, p) => n + p.length, 0);
+    if (chars > 300 * Math.max(1, pages.length)) return pages;
+    const r = await llm({
+      tier: "bulk",
+      parts: [
+        {
+          text: "This is a scanned earnings-call transcript. Transcribe it faithfully, page by page. Start each page with a line '=== PAGE n ===' (n = page number). Keep speaker names. Do not summarise or skip anything.",
+        },
+        pdfPart(bytes),
+      ],
+      cacheId: `ocr-v1|${url}`,
+      maxOutputTokens: 60000,
+    });
+    const parts = r.text.split(/^=== PAGE (\d+) ===\s*$/m);
+    const out: string[] = [];
+    for (let i = 1; i < parts.length; i += 2) out[Number(parts[i]) - 1] = parts[i + 1].trim();
+    const filled = Array.from({ length: Math.max(out.length, pages.length) }, (_, i) => out[i] || pages[i] || "");
+    return filled.some((p) => p.length > 200) ? filled : pages;
+  });
   return value;
 }
 
@@ -117,7 +142,8 @@ export async function extractCall(t: TranscriptRef, withBusiness = false): Promi
     tier: "bulk",
     parts: [{ text: EXTRACT_PROMPT(withBusiness) }, { text: body }],
     json: true,
-    cacheId: `call-v2|${withBusiness ? "b" : ""}|${t.url}`,
+    // Keyed by the text actually read, so a transcript that was re-read (e.g. after OCR) is re-extracted.
+    cacheId: `call-v3|${withBusiness ? "b" : ""}|${t.url}|${cacheKey(body)}`,
     maxOutputTokens: 4096,
   });
   const x = parseJSON<Omit<CallExtract, "url" | "pages">>(r.text);

@@ -2,6 +2,7 @@
 // Input is already compact (structured guidance from 4 calls + the reported quarterly table),
 // so the reasoning model sees maybe 4-6k tokens instead of 150k of raw transcripts.
 import { llm, parseJSON } from "../llm/router";
+import { cacheKey } from "../cache";
 import type { CallExtract } from "./calls";
 import type { NumbersView } from "./numbers";
 
@@ -156,7 +157,7 @@ export async function buildLedger(calls: CallExtract[], numbers: NumbersView): P
     parts: [{ text: LEDGER_PROMPT }, { text: input }],
     json: true,
     schema: LEDGER_SCHEMA,
-    cacheId: `ledger-v4|${numbers.header.ticker}|${calls.map((c) => c.url).join(",")}|${numbers.quarters.cols.at(-1)}`,
+    cacheId: `ledger-v5|${numbers.header.ticker}|${cacheKey(JSON.stringify(calls.map((c) => [c.url, c.guidance, c.delivered])))}|${numbers.quarters.cols.at(-1)}`,
     maxOutputTokens: 8192,
   });
   const l = parseJSON<Ledger>(r.text);
@@ -212,7 +213,7 @@ export async function buildThesis(calls: CallExtract[], numbers: NumbersView): P
     parts: [{ text: THESIS_PROMPT }, { text: `${biz}\n\nComputed financial signals:\n${signals}\n\n${actualsTable(numbers)}\n\n${callsBlock([...calls].reverse())}` }],
     json: true,
     schema: THESIS_SCHEMA,
-    cacheId: `thesis-v1|${numbers.header.ticker}|${calls.map((c) => c.url).join(",")}|${numbers.quarters.cols.at(-1)}`,
+    cacheId: `thesis-v2|${numbers.header.ticker}|${cacheKey(JSON.stringify(calls.map((c) => [c.url, c.guidance, c.delivered])))}|${numbers.quarters.cols.at(-1)}`,
     maxOutputTokens: 4096,
   });
   const t = parseJSON<Omit<Thesis, "business">>(r.text);
