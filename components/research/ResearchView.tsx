@@ -28,6 +28,7 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
   const [ledger, setLedger] = useState<Ledger | null>(initial?.ledger ?? null);
   const [thesis, setThesis] = useState<Thesis | null>(initial?.thesis ?? null);
   const [err, setErr] = useState<string | null>(null);
+  const [noDocs, setNoDocs] = useState(false);
   const [judging, setJudging] = useState<Status>(initial?.ledger && initial?.thesis ? "done" : "idle");
   const started = useRef(false);
   const callErrors = useRef<Record<number, string>>({});
@@ -57,6 +58,10 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
         const n = await api<{ numbers: NumbersView; transcripts: TranscriptRef[] }>(`/api/research/${ticker}?step=numbers`);
         setNumbers(n.numbers);
         setTranscripts(n.transcripts);
+        if (!n.transcripts.length) {
+          setNoDocs(true);
+          return;
+        }
         setCallStatus(n.transcripts.map(() => "loading"));
         const results = await Promise.all(
           n.transcripts.map((_, i) =>
@@ -169,12 +174,14 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
           {ledger && <Verdict ledger={ledger} />}
           {thesis && <BullBear thesis={thesis} />}
           {thesis?.business && <Business thesis={thesis} />}
-          {!ledger && !thesis && <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="verdict" errors={callErrors.current} onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
+          {transcripts.some((t) => t.kind === "ar") && <ArNote ticker={ticker} onlyAr={transcripts.every((t) => t.kind === "ar")} />}
+          {noDocs && <NoDocs ticker={ticker} />}
+          {!ledger && !thesis && !noDocs && <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="verdict" errors={callErrors.current} onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
         </>
       )}
       {tab === "promises" && (
         <>
-          {ledger ? <Promises ledger={ledger} /> : <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="promise ledger" errors={callErrors.current} onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
+          {noDocs ? <NoDocs ticker={ticker} /> : ledger ? <Promises ledger={ledger} /> : <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="promise ledger" errors={callErrors.current} onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
           {ledger && ledger.divergences.length > 0 && <Divergences ledger={ledger} />}
           {ledger && ledger.currentGuidance.length > 0 && <Guidance ledger={ledger} />}
         </>
@@ -182,7 +189,11 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
       {tab === "financials" && (numbers ? <Numbers n={numbers} /> : <Skeleton rows={4} label="Fetching ten years of financials" />)}
       {tab === "calls" && (
         <>
-          {doneCalls.length === 0 && <Skeleton rows={3} label="Reading the transcripts" />}
+          {noDocs && <NoDocs ticker={ticker} />}
+          {doneCalls.length === 0 && !noDocs && callStatus.some((x) => x !== "error") && <Skeleton rows={3} label="Reading the documents" />}
+          {doneCalls.length === 0 && callStatus.length > 0 && callStatus.every((x) => x === "error") && (
+            <section className="card mx-4 mt-3 p-4 text-[13px] text-dim">None of the documents could be opened, so there is nothing to search yet.</section>
+          )}
           {doneCalls.length > 0 && <Ask ticker={ticker} />}
           {doneCalls.length > 0 && <Tone calls={doneCalls} />}
         </>
@@ -190,6 +201,28 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
 
       <Sources ticker={ticker} transcripts={transcripts} calls={doneCalls} numbers={numbers} verified={verified} total={totalQuotes} generatedAt={initial?.generatedAt} />
     </main>
+  );
+}
+
+/** The company has neither earnings-call transcripts nor annual reports we can reach. */
+function NoDocs({ ticker }: { ticker: string }) {
+  return (
+    <section className="card mx-4 mt-3 p-4 text-[13px]">
+      <p className="font-bold">No management documents to check yet.</p>
+      <p className="mt-1 text-dim">
+        {ticker} hasn&apos;t published earnings-call transcripts or annual reports that FINN can reach, so there are no promises to test. The Financials tab is complete.
+      </p>
+    </section>
+  );
+}
+
+function ArNote({ ticker, onlyAr }: { ticker: string; onlyAr: boolean }) {
+  return (
+    <p className="mx-4 mt-3 rounded-xl bg-brand-soft px-3.5 py-2.5 text-[12.5px] leading-snug text-brand">
+      {onlyAr
+        ? `${ticker} doesn't hold earnings calls, so FINN reads management's own words in its last two annual reports (chairman's letter, MD&A, outlook) instead.`
+        : `${ticker} held only one earnings call recently, so FINN also reads its latest annual report.`}
+    </p>
   );
 }
 
@@ -242,7 +275,7 @@ function Loading({
   if (settled && done === 0)
     return (
       <section className="card mx-4 mt-3 p-4 text-[13px]">
-        <p className="font-bold text-down">None of the {total} transcripts could be opened.</p>
+        <p className="font-bold text-down">None of the {total} documents could be opened.</p>
         <p className="mt-1 text-dim">The company hosts them somewhere that blocks our server. The Financials tab is complete.</p>
       </section>
     );
@@ -251,7 +284,7 @@ function Loading({
       <section className="card mx-4 mt-3 p-4 text-[13px]">
         <p className="font-bold">Not enough material for a {what}.</p>
         <p className="mt-1 text-dim">
-          Read {done} of {total} calls{failed ? ` (${failed} couldn't be opened)` : ""}. The calls that were read are in Calls &amp; Ask.
+          Read {done} of {total} documents{failed ? ` (${failed} couldn't be opened)` : ""}. The calls that were read are in Calls &amp; Ask.
         </p>
         {onRetry && (
           <button onClick={onRetry} className="mt-3 rounded-xl bg-brand px-4 py-2 text-[13px] font-bold text-brand-ink">
@@ -277,7 +310,7 @@ function Loading({
     <section className="card mx-4 mt-3 p-4" aria-busy="true" aria-live="polite">
       <div className="flex items-center gap-2 text-[14px] font-bold text-brand">
         <Spinner />
-        {total === 0 ? "Finding the latest earnings calls…" : judging === "loading" ? `Checking promises against reported numbers…` : `Reading earnings calls (${done} of ${total})…`}
+        {total === 0 ? "Finding the latest earnings calls…" : judging === "loading" ? `Checking promises against reported numbers…` : `Reading ${transcripts.every((t) => t.kind === "ar") ? "annual reports" : "earnings calls"} (${done} of ${total})…`}
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-raise">
         <div className="h-full rounded-full bg-brand transition-all duration-500" style={{ width: `${pct}%` }} />
@@ -286,7 +319,7 @@ function Loading({
         <ul className="mt-3 space-y-1.5 text-[12.5px]">
           {transcripts.map((t, i) => (
             <li key={t.url} className="flex items-center justify-between">
-              <span>{calls[i]?.quarter ?? t.label} call</span>
+              <span>{t.kind === "ar" ? t.label.replace(/^./, (c) => c.toUpperCase()) : `${calls[i]?.quarter ?? t.label} call`}</span>
               <span className={clsx("flex items-center gap-1 font-semibold", callStatus[i] === "done" ? "text-up" : callStatus[i] === "error" ? "text-down" : "text-dim")}>
                 {callStatus[i] === "done" ? (
                   `✓ ${calls[i]?.guidance.length ?? 0} promises`
@@ -751,7 +784,8 @@ function Sources({
   return (
     <section className="mx-4 mt-6 text-[11.5px] leading-snug text-dim">
       <p>
-        Sources: {ticker}&apos;s own earnings-call transcripts ({calls.map((c) => `${c.quarter}, ${c.pages} pages`).join("; ") || transcripts.map((t) => t.label).join(", ")}) and
+        Sources: {ticker}&apos;s own{" "}
+        {transcripts.length > 0 && transcripts.every((t) => t.kind === "ar") ? "annual reports" : transcripts.some((t) => t.kind === "ar") ? "earnings-call transcripts and annual report" : "earnings-call transcripts"} {transcripts.length > 0 && `(${calls.map((c) => `${c.quarter}, ${c.pages} pages`).join("; ") || transcripts.map((t) => t.label).join(", ")})`} and
         reported financials{" "}
         {numbers && (
           <a href={numbers.header.screenerUrl} className="text-brand" target="_blank" rel="noreferrer">

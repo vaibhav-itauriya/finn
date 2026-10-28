@@ -59,7 +59,7 @@ export function SearchBox() {
             <li key={h.ticker + h.name}>
               <button type="button" onClick={() => go(h.ticker)} className="flex w-full items-baseline justify-between px-4 py-3 text-left hover:bg-ink/5">
                 <span className="text-[15px]">{h.name}</span>
-                <span className="text-[12px] text-dim">{h.ticker}</span>
+                <span className="shrink-0 pl-3 text-[12px] text-dim">{/^\d+$/.test(h.ticker) ? `BSE ${h.ticker}` : h.ticker}</span>
               </button>
             </li>
           ))}

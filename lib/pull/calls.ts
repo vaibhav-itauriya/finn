@@ -12,6 +12,7 @@ export interface TranscriptRef {
   label: string; // Screener's month label, e.g. "Oct 2026"
   url: string;
   alts?: string[]; // other copies of the same call, tried in order if the first can't be read
+  kind?: "ar"; // an annual report, used when the company holds no earnings calls
 }
 
 export interface GuidanceItem {
@@ -141,6 +142,63 @@ Return JSON:
 }
 Keep at most 8 guidance items (the most important, quantitative first), 6 delivered items and 4 pushback items. Quotes must be verbatim.`;
 
+// ---- Annual reports: the fallback for companies that don't hold earnings calls (e.g. OFSS) ----
+
+/** The n latest annual reports Screener lists, labelled "FY26 annual report". */
+export function annualReportRefs(sc: ScreenerCompany, n = 2): TranscriptRef[] {
+  const seen = new Set<number>();
+  return sc.annualReports
+    .map((d) => ({ y: Number((d.label.match(/20\d\d/) || [])[0]), url: d.url }))
+    .filter((d) => d.y && !seen.has(d.y) && seen.add(d.y))
+    .sort((a, b) => b.y - a.y)
+    .slice(0, n)
+    .map((d) => ({ label: `FY${String(d.y).slice(2)} annual report`, url: d.url, kind: "ar" as const }));
+}
+
+const AR_KEYS =
+  /management discussion|outlook|going forward|we expect|we plan|we aim|we intend|we will|target|capex|capital expenditure|guidance|strateg|order book|pipeline|dear (share|stake)holders|chairman|managing director|chief executive|growth driver|expansion|new product|market share/gi;
+const AR_SKIP =
+  /balance sheet as at|statement of profit and loss for|notes to (the )?(standalone |consolidated )?financial statements|cash flow statement|form aoc|secretarial audit|independent auditor|report on corporate governance|nomination and remuneration|annexure/i;
+
+/**
+ * An annual report runs to 200-400 pages, mostly statutory. Keep only the pages where management
+ * talks: the chairman's letter, MD&A and outlook. Other pages are kept as "" so page numbers and
+ * citations still match the PDF. Cached forever, like transcripts.
+ */
+export async function reportPages(url: string): Promise<string[]> {
+  const { value } = await cached("pages", cacheKey("ar-pages-v1", url), async () => {
+    const pages = await pdfPages(await fetchPdf(url));
+    const scored = pages.map((p, i) => ({ i, s: (p.match(AR_KEYS) || []).length - (AR_SKIP.test(p) ? 6 : 0) }));
+    const keep = new Set<number>();
+    let chars = 0;
+    for (const x of scored.filter((x) => x.s >= 3).sort((a, b) => b.s - a.s)) {
+      if (keep.size >= 28 || chars > 90_000) break;
+      keep.add(x.i);
+      chars += pages[x.i].length;
+    }
+    return pages.map((p, i) => (keep.has(i) ? p : ""));
+  });
+  return value;
+}
+
+/** Page texts for any source document: a transcript, or the management pages of an annual report. */
+export const docPages = (t: TranscriptRef) => (t.kind === "ar" ? reportPages(t.url) : transcriptPages(t.url));
+
+const AR_PROMPT = `You are an equity analyst reading the management sections (chairman's letter, MD&A, outlook) of an Indian listed company's annual report. Pages are marked [[p.N]]; other pages were left out.
+Use ONLY this text. Do not use outside knowledge.
+Return JSON:
+{
+ "quarter": null,
+ "callDate": null,
+ "guidance": [ forward-looking commitments by MANAGEMENT about revenue/growth, margins, profit, capex, volumes, order book, product launches or other targets.
+   {"metric": "revenue|margin|profit|capex|volume|orders|other", "statement": "<=20 words, plain English, include the number if given", "quote": "<=30 words copied EXACTLY from the text", "page": N, "horizon": "e.g. FY27 / next year / medium term", "quantitative": true if a number or range is given} ],
+ "delivered": [ what management says was achieved in the year: {"metric": "...", "statement": "<=20 words with numbers", "page": N} ],
+ "tone": "<=20 words: management's overall stance",
+ "pushback": [],
+ "business": {"summary": "<=40 words: what the company does and how it makes money", "segments": [{"name": "...", "share": "share of revenue if stated, else null", "note": "<=12 words"}], "page": N}
+}
+Keep at most 8 guidance items (the most important, quantitative first) and 6 delivered items. Quotes must be verbatim.`;
+
 /** A one-page letter saying "the transcript has been uploaded on our website" is not a transcript. */
 function isCoverLetter(pages: string[]) {
   const text = pages.join(" ");
@@ -153,7 +211,11 @@ export async function extractCall(t: TranscriptRef, withBusiness = false): Promi
   const reasons: string[] = [];
   for (const u of [t.url, ...(t.alts || [])]) {
     try {
-      const p = await transcriptPages(u);
+      const p = t.kind === "ar" ? await reportPages(u) : await transcriptPages(u);
+      if (t.kind === "ar" && p.join("").length < 2000) {
+        reasons.push("annual report has no readable management pages");
+        continue;
+      }
       if (isCoverLetter(p)) {
         reasons.push("exchange filing is only a cover letter");
         continue;
@@ -165,15 +227,20 @@ export async function extractCall(t: TranscriptRef, withBusiness = false): Promi
       reasons.push(/Not a PDF/.test((e as Error).message) ? "company link is dead" : "couldn't download");
     }
   }
-  if (!pages.length) throw new Error(`No readable transcript for ${t.label}: ${[...new Set(reasons)].join(", ")}`);
+  if (!pages.length) throw new Error(`No readable ${t.kind === "ar" ? "report" : "transcript"} for ${t.label}: ${[...new Set(reasons)].join(", ")}`);
   t = { ...t, url: used };
-  const body = pages.map((p, i) => `[[p.${i + 1}]]\n${p}`).join("\n\n").slice(0, 180_000);
+  const body = pages
+    .map((p, i) => (p ? `[[p.${i + 1}]]\n${p}` : ""))
+    .filter(Boolean)
+    .join("\n\n")
+    .slice(0, 180_000);
+  const ar = t.kind === "ar";
   const r = await llm({
     tier: "bulk",
-    parts: [{ text: EXTRACT_PROMPT(withBusiness) }, { text: body }],
+    parts: [{ text: ar ? AR_PROMPT : EXTRACT_PROMPT(withBusiness) }, { text: body }],
     json: true,
     // Keyed by the text actually read, so a transcript that was re-read (e.g. after OCR) is re-extracted.
-    cacheId: `call-v3|${withBusiness ? "b" : ""}|${t.url}|${cacheKey(body)}`,
+    cacheId: `call-v3|${ar ? "ar" : withBusiness ? "b" : ""}|${t.url}|${cacheKey(body)}`,
     maxOutputTokens: 4096,
   });
   const x = parseJSON<Omit<CallExtract, "url" | "pages">>(r.text);
@@ -183,14 +250,14 @@ export async function extractCall(t: TranscriptRef, withBusiness = false): Promi
   });
   return {
     url: t.url,
-    quarter: x.quarter || t.label,
-    callDate: x.callDate ?? null,
+    quarter: ar ? t.label : x.quarter || t.label,
+    callDate: ar ? null : x.callDate ?? null,
     pages: pages.length,
     guidance,
     delivered: x.delivered || [],
     tone: x.tone || "",
-    pushback: x.pushback || [],
-    business: withBusiness ? x.business ?? null : null,
+    pushback: ar ? [] : x.pushback || [],
+    business: withBusiness || ar ? x.business ?? null : null,
   };
 }
 

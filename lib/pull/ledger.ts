@@ -57,7 +57,7 @@ function callsBlock(calls: CallExtract[]): string {
       const g = c.guidance.map((x) => `  - [${x.metric}] ${x.statement} (horizon: ${x.horizon}; p.${x.page}; quote: "${x.quote}"${x.verified ? "" : "; UNVERIFIED"})`).join("\n");
       const d = c.delivered.map((x) => `  - [${x.metric}] ${x.statement} (p.${x.page})`).join("\n");
       const p = c.pushback.map((x) => `  - ${x.topic}: ${x.gist} (p.${x.page})`).join("\n");
-      return `### Call: ${c.quarter} (${c.callDate || "date n/a"})\nTone: ${c.tone}\nGuidance given:\n${g || "  (none)"}\nManagement says delivered:\n${d || "  (none)"}\nAnalyst pushback:\n${p || "  (none)"}`;
+      return `### ${/annual report/.test(c.quarter) ? "Annual report" : "Call"}: ${c.quarter} (${c.callDate || "date n/a"})\nTone: ${c.tone}\nGuidance given:\n${g || "  (none)"}\nManagement says delivered:\n${d || "  (none)"}\nAnalyst pushback:\n${p || "  (none)"}`;
     })
     .join("\n\n");
 }
@@ -126,7 +126,7 @@ const THESIS_SCHEMA = {
   required: ["bull", "bear", "watch"],
 };
 
-const LEDGER_PROMPT = `You are a sceptical buy-side analyst. Judge management's credibility using ONLY the material below: structured notes from their own earnings calls (oldest first) and the company's reported quarterly numbers. No outside knowledge.
+const LEDGER_PROMPT = `You are a sceptical buy-side analyst. Judge management's credibility using ONLY the material below: structured notes from their own earnings calls and/or annual reports (oldest first; an annual report's promises are judged against the years after it) and the company's reported quarterly numbers. No outside knowledge.
 
 Tasks:
 1. "rows": for each meaningful promise made in the OLDER calls, decide what happened by the latest data:
@@ -200,7 +200,7 @@ export async function buildLedger(calls: CallExtract[], numbers: NumbersView): P
   return l;
 }
 
-const THESIS_PROMPT = `Using ONLY the earnings-call notes, the business description from the latest call and the computed financial signals below, write a tight bull and bear case for a portfolio manager. No outside knowledge, no news, no broker views.
+const THESIS_PROMPT = `Using ONLY the earnings-call or annual-report notes, the business description from the latest document and the computed financial signals below, write a tight bull and bear case for a portfolio manager. No outside knowledge, no news, no broker views.
 Each point <=22 words, concrete, with a number where possible, and a citation: {"quarter":"...","page":n} for call material or {"table":"<which signal>"} for computed financials. 3-4 points each side. Then "watch": 3 specific things to check in the next results (<=15 words each).
 Return JSON {"bull":[{"point":"...","cite":{...}}],"bear":[...],"watch":["..."]}.`;
 

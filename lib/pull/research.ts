@@ -6,7 +6,7 @@ import path from "node:path";
 import { cached, cacheKey } from "../cache";
 import { llm } from "../llm/router";
 import { fetchScreener, type ScreenerCompany } from "../sources/screener";
-import { bseTranscripts, extractCall, pickTranscripts, retrieve, transcriptPages, type CallExtract, type TranscriptRef } from "./calls";
+import { annualReportRefs, bseTranscripts, docPages, extractCall, pickTranscripts, retrieve, type CallExtract, type TranscriptRef } from "./calls";
 import { buildLedger, buildThesis, type Ledger, type Thesis } from "./ledger";
 import { buildNumbers, type NumbersView } from "./numbers";
 
@@ -38,10 +38,17 @@ export async function snapshot(ticker: string): Promise<ResearchReport | null> {
   }
 }
 
-/** Screener's transcript links merged with the exchange copies; BSE wins when both exist for a month. */
+/**
+ * Source documents for the promise check: Screener's transcript links merged with the exchange
+ * copies. Some companies (OFSS, for one) never hold earnings calls, and some hold one a year, so
+ * the latest annual reports fill in: management's own outlook, judged the same way.
+ */
 export async function transcripts(ticker: string): Promise<TranscriptRef[]> {
   const sc = await company(ticker);
-  const { value } = await cached("screener", cacheKey("transcripts-v3", ticker.toUpperCase(), today()), async () => pickTranscripts(sc, 4, await bseTranscripts(sc.bse)));
+  const { value } = await cached("screener", cacheKey("transcripts-v4", ticker.toUpperCase(), today()), async () => {
+    const calls = pickTranscripts(sc, 4, await bseTranscripts(sc.bse));
+    return calls.length >= 2 ? calls : [...calls, ...annualReportRefs(sc, 2 - calls.length)];
+  });
   return value;
 }
 
@@ -90,16 +97,16 @@ export async function ask(ticker: string, question: string) {
   const sc = await company(ticker);
   const ts = await transcripts(ticker);
   const docs = await Promise.all(
-    ts.map(async (t) => ({ quarter: t.label, url: t.url, pages: await transcriptPages(t.url).catch(() => [] as string[]) })),
+    ts.map(async (t) => ({ quarter: t.label, url: t.url, pages: await docPages(t).catch(() => [] as string[]) })),
   );
   const hits = retrieve(docs, question, 6);
-  if (!hits.length) return { answer: "Nothing in the last four concall transcripts addresses this.", cites: [] };
+  if (!hits.length) return { answer: "Nothing in the documents FINN read addresses this.", cites: [] };
   const ctx = hits.map((h, i) => `[S${i + 1}] ${h.quarter} call, p.${h.page}:\n${h.text.slice(0, 3500)}`).join("\n\n");
   const r = await llm({
     tier: "bulk",
     parts: [
       {
-        text: `Answer the investor's question about ${sc.name} using ONLY the transcript excerpts. Max 80 words, numbers first. Cite like [S1]. If the excerpts don't answer it, say so in one line.\nQuestion: ${question}\n\n${ctx}`,
+        text: `Answer the investor's question about ${sc.name} using ONLY the excerpts from its own earnings calls and annual reports. Max 80 words, numbers first. Cite like [S1]. If the excerpts don't answer it, say so in one line.\nQuestion: ${question}\n\n${ctx}`,
       },
     ],
     cacheId: `ask-v1|${ticker}|${question.toLowerCase().trim()}|${ts.map((t) => t.url).join(",")}`,
