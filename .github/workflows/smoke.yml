@@ -1,0 +1,32 @@
+name: FINN live smoke test
+
+# Calls the deployed app's endpoints and prints what they return. Run it after a deploy.
+on:
+  workflow_dispatch:
+    inputs:
+      ask:
+        description: "Question for the copilot"
+        default: "What needs me today?"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      APP: ${{ vars.FINN_APP_URL || 'https://finn-opal-delta.vercel.app' }}
+    steps:
+      - name: Health
+        run: curl -sS "$APP/api/health" | head -c 1500; echo
+      - name: Telegram (also points the bot's webhook at production)
+        run: curl -sS "$APP/api/telegram/config"; echo
+      - name: Phone push key
+        run: curl -sS "$APP/api/push/key" | head -c 200; echo
+      - name: Inbox feed
+        run: curl -sS "$APP/api/feed" | python3 -c "import sys,json; j=json.load(sys.stdin); print(len(j['items']),'items'); [print(' ',i['ts'][:16],i['title'],'|',i['body'][:100]) for i in j['items'][:6]]"
+      - name: Copilot
+        run: |
+          curl -sS -X POST "$APP/api/copilot" -H 'Content-Type: application/json' -d "$(python3 -c "import json,os;print(json.dumps({'q': os.environ['Q']}))")"; echo
+        env:
+          Q: ${{ github.event.inputs.ask }}
+      - name: Share price
+        run: curl -sS "$APP/api/research/HDFCBANK?step=price" | python3 -c "import sys,json; j=json.load(sys.stdin); d=j.get('data') or {}; print(j.get('error') or (d.get('source'), len(d.get('bars',[])), d.get('bars',[[]])[-1]))"
