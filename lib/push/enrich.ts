@@ -7,7 +7,7 @@
 //   everything else    -> "second opinion": the cheap model reads the filing PDF, writes one line
 //                         of substance and nudges the rules' score within a bounded range
 import { getJSON } from "../util/http";
-import { webSearch } from "../sources/websearch";
+import { webSearch, type WebHit } from "../sources/websearch";
 import type { Category, Filing, MgmtCard, PersonBio, ResultsCard, SummaryCard, Triplet } from "../types";
 import { llm, parseJSON, pdfPart, type LLMTier, type Part } from "../llm/router";
 import { fetchPdf } from "../sources/pdf";
@@ -341,10 +341,11 @@ Reply with JSON only: {"bio": "..." or null, "previously": ["<Role, Company, yea
  */
 async function webBio(name: string, role: string, company: string): Promise<Pick<PersonBio, "bio" | "previously" | "sources"> | null> {
   const firm = company.replace(/\b(Ltd|Limited)\.?$/i, "").trim();
-  const hits = await webSearch(`"${name}" ${firm} ${role}`);
   const surname = name.trim().split(/\s+/).at(-1)!.toLowerCase();
   const firmWord = firm.split(/\s+/)[0].toLowerCase();
-  const good = hits.filter((h) => `${h.title} ${h.snippet}`.toLowerCase().includes(surname));
+  const named = (hs: WebHit[]) => hs.filter((h) => `${h.title} ${h.snippet}`.toLowerCase().includes(surname));
+  let good = named(await webSearch(`"${name}" ${firm} ${role}`));
+  if (!good.length) good = named(await webSearch(`${name} ${firm}`));
   if (!good.length || !good.some((h) => `${h.title} ${h.snippet} ${h.url}`.toLowerCase().includes(firmWord))) return null;
   const r = await llm({
     tier: "bulk",
