@@ -65,6 +65,8 @@ export interface Meter {
 }
 
 const deadModels = new Set<string>();
+// Grounded search has its own quota: running out of it says nothing about plain generation.
+const deadSearch = new Set<string>();
 let llmLog: (s: string) => void = () => {};
 export function setLLMLogger(fn: (s: string) => void) {
   llmLog = fn;
@@ -184,7 +186,7 @@ async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse &
 export async function llm(req: LLMRequest): Promise<LLMResponse> {
   const run = async (): Promise<LLMResponse> => {
     let lastErr: unknown;
-    for (const model of MODELS[req.tier].filter((m) => !deadModels.has(m))) {
+    for (const model of MODELS[req.tier].filter((m) => !deadModels.has(m) && !(req.tier === "search" && deadSearch.has(m)))) {
       try {
         let r = await callGemini(model, req);
         // Never cache a reply we can't parse: retry once, then give up loudly.
@@ -200,7 +202,8 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
       } catch (e) {
         lastErr = e;
         const status = (e as { status?: number }).status;
-        if (status === 404 || (e as { daily?: boolean }).daily) deadModels.add(model); // retired or out of quota for today
+        if (status === 404) deadModels.add(model); // retired
+        else if ((e as { daily?: boolean }).daily) (req.tier === "search" ? deadSearch : deadModels).add(model); // out of quota for today
         if (status !== 404 && status !== 400 && status !== 422 && status !== 429) throw e; // otherwise try the next model
       }
     }

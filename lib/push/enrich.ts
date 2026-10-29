@@ -7,6 +7,7 @@
 //   everything else    -> "second opinion": the cheap model reads the filing PDF, writes one line
 //                         of substance and nudges the rules' score within a bounded range
 import { getJSON } from "../util/http";
+import { webSearch } from "../sources/websearch";
 import type { Category, Filing, MgmtCard, PersonBio, ResultsCard, SummaryCard, Triplet } from "../types";
 import { llm, parseJSON, pdfPart, type LLMTier, type Part } from "../llm/router";
 import { fetchPdf } from "../sources/pdf";
@@ -319,9 +320,9 @@ Reply with JSON only: {"bio": "..." or null, "previously": ["<Role, Company, yea
       } catch (e) {
         console.error("bio search failed:", (e as Error).message.slice(0, 160));
       }
-      // No web-search quota left, or nothing found: Wikipedia is free and covers most top executives.
+      // No grounded-search quota left, or nothing found: a plain web search, then Wikipedia.
       if (!person.sources?.length) {
-        const w = await wikiBio(p.name, f.company).catch(() => null);
+        const w = (await webBio(p.name, p.role, f.company).catch(() => null)) ?? (await wikiBio(p.name, f.company).catch(() => null));
         if (w) Object.assign(person, w);
       }
     }
@@ -331,6 +332,38 @@ Reply with JSON only: {"bio": "..." or null, "previously": ["<Role, Company, yea
   const order = { appointed: 0, redesignated: 1, resigned: 2, retired: 3, other: 4 } as const;
   people.sort((a, b) => order[a.change] - order[b.change]);
   return { card: { kind: "management", people, reason: ex.reason ?? null }, senior };
+}
+
+/**
+ * Fallback bio from a plain web search: the cheap model writes it from the result snippets only,
+ * and only snippets that name both the person and the company count, so a namesake can't slip in.
+ */
+async function webBio(name: string, role: string, company: string): Promise<Pick<PersonBio, "bio" | "previously" | "sources"> | null> {
+  const firm = company.replace(/\b(Ltd|Limited)\.?$/i, "").trim();
+  const hits = await webSearch(`"${name}" ${firm} ${role}`);
+  const surname = name.trim().split(/\s+/).at(-1)!.toLowerCase();
+  const firmWord = firm.split(/\s+/)[0].toLowerCase();
+  const good = hits.filter((h) => `${h.title} ${h.snippet}`.toLowerCase().includes(surname));
+  if (!good.length || !good.some((h) => `${h.title} ${h.snippet} ${h.url}`.toLowerCase().includes(firmWord))) return null;
+  const r = await llm({
+    tier: "bulk",
+    parts: [
+      {
+        text: `${name} has been ${role.toLowerCase().includes("director") ? "named" : "appointed"} ${role} at ${company}. From these web search results ONLY, write a professional bio. At most 2 sentences, 35 words. Lead with the immediate previous role and employer, then the major companies behind them. No praise words. If the results don't describe this person's career, return null.
+Reply JSON: {"bio": "..." or null, "previously": ["<Role, Company, years if known>", ...up to 3, most recent first], "used": [indexes of the results you relied on]}
+
+${good.map((h, i) => `[${i}] ${h.title}\n${h.snippet}`).join("\n\n")}`,
+      },
+    ],
+    json: true,
+    cacheId: `webbio-v1|${name}|${company}|${good.map((h) => h.url).join(",")}`,
+    maxOutputTokens: 500,
+  });
+  const b = parseJSON<{ bio: string | null; previously?: string[]; used?: number[] }>(r.text);
+  if (!b.bio) return null;
+  const used = (b.used || []).map((i) => good[i]).filter(Boolean);
+  const src = (used.length ? used : good).slice(0, 3).map((h) => ({ title: new URL(h.url).hostname.replace(/^www\./, ""), url: h.url }));
+  return { bio: b.bio, previously: (b.previously || []).slice(0, 3), sources: src };
 }
 
 /**
