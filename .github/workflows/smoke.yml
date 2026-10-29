@@ -14,19 +14,35 @@ jobs:
     timeout-minutes: 8
     env:
       APP: ${{ vars.FINN_APP_URL || 'https://finn-opal-delta.vercel.app' }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Health
-        run: curl -sS "$APP/api/health" | head -c 1500; echo
+        run: |
+          { curl -sS "$APP/api/health" | head -c 1500; echo; } > out.txt 2>&1 || true; cat out.txt
+          echo "::notice title=Health::$(head -c 3500 out.txt | sed -e ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')"
       - name: Telegram (also points the bot's webhook at production)
-        run: curl -sS "$APP/api/telegram/config"; echo
+        run: |
+          { curl -sS "$APP/api/telegram/config"; echo; } > out.txt 2>&1 || true; cat out.txt
+          echo "::notice title=Telegram (also points the bot's webhook at production)::$(head -c 3500 out.txt | sed -e ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')"
       - name: Phone push key
-        run: curl -sS "$APP/api/push/key" | head -c 200; echo
+        run: |
+          { curl -sS "$APP/api/push/key" | head -c 200; echo; } > out.txt 2>&1 || true; cat out.txt
+          echo "::notice title=Phone push key::$(head -c 3500 out.txt | sed -e ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')"
       - name: Inbox feed
-        run: curl -sS "$APP/api/feed" | python3 -c "import sys,json; j=json.load(sys.stdin); print(len(j['items']),'items'); [print(' ',i['ts'][:16],i['title'],'|',i['body'][:100]) for i in j['items'][:6]]"
+        run: |
+          { curl -sS "$APP/api/feed" | python3 -c "import sys,json; j=json.load(sys.stdin); print(len(j['items']),'items'); [print(' ',i['ts'][:16],i['title'],'|',i['body'][:100]) for i in j['items'][:6]]"; } > out.txt 2>&1 || true; cat out.txt
+          echo "::notice title=Inbox feed::$(head -c 3500 out.txt | sed -e ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')"
       - name: Copilot
         run: |
+          {
           curl -sS -X POST "$APP/api/copilot" -H 'Content-Type: application/json' -d "$(python3 -c "import json,os;print(json.dumps({'q': os.environ['Q']}))")"; echo
+          } > out.txt 2>&1 || true; cat out.txt
+          echo "::notice title=Copilot::$(head -c 3500 out.txt | sed -e ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')"
         env:
           Q: ${{ github.event.inputs.ask }}
       - name: Share price
-        run: curl -sS "$APP/api/research/HDFCBANK?step=price" | python3 -c "import sys,json; j=json.load(sys.stdin); d=j.get('data') or {}; print(j.get('error') or (d.get('source'), len(d.get('bars',[])), d.get('bars',[[]])[-1]))"
+        run: |
+          { curl -sS "$APP/api/research/HDFCBANK?step=price" | python3 -c "import sys,json; j=json.load(sys.stdin); d=j.get('data') or {}; print(j.get('error') or (d.get('source'), len(d.get('bars',[])), d.get('bars',[[]])[-1]))"; } > out.txt 2>&1 || true; cat out.txt
+          echo "::notice title=Share price::$(head -c 3500 out.txt | sed -e ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')"
