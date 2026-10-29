@@ -1,28 +1,16 @@
-// Which keyless search engines answer from this runner? npx tsx scripts/dev/engines.ts
-import { getText } from "../../lib/util/http";
-const q = '"Anup Bagchi" HDFC Bank MD & CEO';
-const urls = {
-  ddg: `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}&kl=in-en`,
-  ddgLite: `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}`,
-  bing: `https://www.bing.com/search?q=${encodeURIComponent(q)}&setlang=en-IN&cc=IN`,
-};
+// Check the web-search bio path end to end: npx tsx scripts/dev/engines.ts
+import { webSearch } from "../../lib/sources/websearch";
+import { webBio } from "../../lib/push/enrich";
+import { setLLMLogger } from "../../lib/llm/router";
+setLLMLogger((s) => console.log("llm:", s));
 (async () => {
-  for (const [k, u] of Object.entries(urls)) {
-    for (let i = 0; i < 3; i++) {
-      try {
-        const h = await getText(u, { retries: 0 });
-        console.log(k, i, h.length, /result__a|result-link|b_algo/.test(h) ? "results" : "NO results", (h.match(/<title>([^<]*)/) || [])[1]);
-      } catch (e) {
-        console.log(k, i, "error", (e as Error).message.slice(0, 80));
-      }
+  const hits = await webSearch('"Anup Bagchi" HDFC Bank MD & CEO');
+  console.log(hits.slice(0, 4).map((h) => `${h.title} | ${h.url} | ${h.snippet.slice(0, 80)}`));
+  for (const [n, r, c] of [["Anup Bagchi", "MD & CEO", "HDFC Bank Ltd"], ["Prashant Verma", "Chief Information Security Officer", "Bajaj Finance Ltd"]]) {
+    try {
+      console.log(n, JSON.stringify(await webBio(n, r, c)));
+    } catch (e) {
+      console.log(n, "error:", (e as Error).message.slice(0, 300));
     }
-  }
-  const { enrichManagement } = await import("../../lib/push/enrich");
-  const { readFileSync } = await import("node:fs");
-  const d = JSON.parse(readFileSync("data/digest.json", "utf8"));
-  for (const t of ["HDFCBANK", "BAJFINANCE"]) {
-    const f = d.filings.find((x: { ticker: string; enrichment?: { kind: string } }) => x.ticker === t && x.enrichment?.kind === "management");
-    const r = await enrichManagement(f);
-    console.log(t, JSON.stringify(r?.card.people[0]).slice(0, 600));
   }
 })();

@@ -339,7 +339,7 @@ Reply with JSON only: {"bio": "..." or null, "previously": ["<Role, Company, yea
  * Fallback bio from a plain web search: the cheap model writes it from the result snippets only,
  * and only snippets that name both the person and the company count, so a namesake can't slip in.
  */
-async function webBio(name: string, role: string, company: string): Promise<Pick<PersonBio, "bio" | "previously" | "sources"> | null> {
+export async function webBio(name: string, role: string, company: string): Promise<Pick<PersonBio, "bio" | "previously" | "sources"> | null> {
   const firm = company.replace(/\b(Ltd|Limited)\.?$/i, "").trim();
   const surname = name.trim().split(/\s+/).at(-1)!.toLowerCase();
   const firmWord = firm.split(/\s+/)[0].toLowerCase();

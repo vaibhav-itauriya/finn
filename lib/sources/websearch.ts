@@ -1,6 +1,6 @@
 // Plain web search for push-side enrichment (who is the new CFO?), used when the model's own
-// grounded search has no quota. No API keys: DuckDuckGo's HTML page, then its lite page, then
-// Bing, because any one of them may answer a cloud runner with a bot check. We keep titles,
+// grounded search has no quota. No API keys: DuckDuckGo's HTML page, then Bing, then
+// DuckDuckGo Lite, because any one of them may answer a cloud runner with a bot check. We keep titles,
 // snippets and real URLs so every bio can show where it came from.
 import * as cheerio from "cheerio";
 import { getText, sleep } from "../util/http";
@@ -13,7 +13,17 @@ export interface WebHit {
 
 const unwrap = (u: string) => {
   const m = u.match(/[?&]uddg=([^&]+)/);
-  return m ? decodeURIComponent(m[1]) : u;
+  if (m) return decodeURIComponent(m[1]);
+  // Bing wraps results as /ck/a?...&u=a1<base64url of the real address>
+  const b = u.match(/bing\.com\/ck\/a\?.*?[?&]u=a1([^&]+)/);
+  if (b) {
+    try {
+      return Buffer.from(b[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    } catch {
+      return u;
+    }
+  }
+  return u;
 };
 const ok = (h: WebHit) => /^https?:\/\//.test(h.url) && !/duckduckgo\.com\/y\.js|bing\.com\/aclick/.test(h.url) && h.title.length > 0;
 
@@ -32,6 +42,19 @@ const ENGINES: { name: string; url: (q: string) => string; parse: (html: string)
     },
   },
   {
+    name: "bing",
+    url: (q) => `https://www.bing.com/search?q=${encodeURIComponent(q)}&setlang=en-IN&cc=IN`,
+    parse: (html) => {
+      const $ = cheerio.load(html);
+      return $("li.b_algo")
+        .map((_, el) => {
+          const a = $(el).find("h2 a").first();
+          return { title: a.text().trim(), url: unwrap(a.attr("href") || ""), snippet: $(el).find(".b_caption p, p").first().text().trim() };
+        })
+        .get();
+    },
+  },
+  {
     name: "ddg-lite",
     url: (q) => `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(q)}&kl=in-en`,
     parse: (html) => {
@@ -43,19 +66,6 @@ const ENGINES: { name: string; url: (q: string) => string; parse: (html: string)
         out.push({ title: $(a).text().trim(), url: unwrap($(a).attr("href") || ""), snippet });
       });
       return out;
-    },
-  },
-  {
-    name: "bing",
-    url: (q) => `https://www.bing.com/search?q=${encodeURIComponent(q)}&setlang=en-IN&cc=IN`,
-    parse: (html) => {
-      const $ = cheerio.load(html);
-      return $("li.b_algo")
-        .map((_, el) => {
-          const a = $(el).find("h2 a").first();
-          return { title: a.text().trim(), url: a.attr("href") || "", snippet: $(el).find(".b_caption p, p").first().text().trim() };
-        })
-        .get();
     },
   },
 ];
