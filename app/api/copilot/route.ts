@@ -14,7 +14,10 @@ export async function POST(req: Request) {
   if (!b.q?.trim() && !b.audio?.data) return NextResponse.json({ error: "Ask something" }, { status: 400 });
   if (b.audio && b.audio.data.length > 4_000_000) return NextResponse.json({ error: "That recording is too long. Keep it under a minute." }, { status: 413 });
   try {
-    return NextResponse.json(await ask(b));
+    // Answer within the platform's limit or say so, never leave the phone waiting.
+    const r = await Promise.race([ask(b), new Promise<null>((res) => setTimeout(() => res(null), 38000))]);
+    if (!r) return NextResponse.json({ error: "That took too long, the free model is busy. Try again in a moment." }, { status: 504 });
+    return NextResponse.json(r);
   } catch (e) {
     return NextResponse.json({ error: /quota|rate|available/i.test((e as Error).message) ? "FINN's free model quota is busy. Try again in a minute." : (e as Error).message.slice(0, 200) }, { status: 502 });
   }

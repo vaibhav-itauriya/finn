@@ -1,5 +1,5 @@
 "use client";
-import { ShareWhatsApp, shareText } from "../ShareWhatsApp";
+import { ShareButton } from "../share/Share";
 import { filingLine } from "@/lib/feed";
 import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motion";
 import Link from "next/link";
@@ -9,7 +9,6 @@ import type { Filing } from "@/lib/types";
 import { CATEGORY_LABEL } from "@/lib/push/classify";
 import { RelTime } from "../RelTime";
 import { ResultsTable } from "./ResultsTable";
-import { SendToTelegram } from "../telegram/TelegramBanner";
 
 interface Props {
   f: Filing;
@@ -18,10 +17,11 @@ interface Props {
   variant: "lead" | "glance";
   onDone: (f: Filing) => void;
   onMute: (f: Filing) => void;
+  fresh?: boolean; // arrived since the last visit
 }
 
 /** Swipe right = done, swipe left = mute this kind of filing for this company. Buttons do the same. */
-export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMute }: Props) {
+export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMute, fresh }: Props) {
   const x = useMotionValue(0);
   const doneOpacity = useTransform(x, [20, 90], [0, 1]);
   const muteOpacity = useTransform(x, [-90, -20], [1, 0]);
@@ -51,6 +51,7 @@ export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMu
             {f.ticker}
           </Link>
           <span className={clsx("rounded-md px-1.5 py-[1px] text-[11px] font-bold", lead ? "bg-brand-soft text-brand" : "bg-raise text-dim")}>{CATEGORY_LABEL[f.category]}</span>
+          {fresh && <span className="rounded-md bg-flag/15 px-1.5 py-[1px] text-[10.5px] font-extrabold uppercase tracking-wide text-flag">New</span>}
           <time className="ml-auto text-[11.5px] text-dim num" dateTime={f.ts} title={new Date(f.ts).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}>
             <RelTime iso={f.ts} withTime />
           </time>
@@ -97,12 +98,14 @@ export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMu
               <Link href={`/research/${f.ticker}`} className="font-semibold text-brand">
                 Research
               </Link>
-              <SendToTelegram body={{ kind: "filing", id: f.id }} />
-              <ShareWhatsApp text={whatsappText(f)} path={`/digest?f=${encodeURIComponent(f.id)}`} />
-              <button onClick={() => setWhy((w) => !w)} className="font-semibold text-dim">
+              <button onClick={() => setWhy((w) => !w)} className="font-semibold text-dim" aria-label="Why is this ranked here?">
                 Why?
               </button>
-              <button onClick={() => onDone(f)} className="ml-auto rounded-full bg-raise px-3 py-1 font-bold">
+              <ShareButton
+                className="ml-auto"
+                payload={{ title: `${f.ticker} · ${CATEGORY_LABEL[f.category]}`, text: shareTextOf(f), path: `/digest?f=${encodeURIComponent(f.id)}`, bot: { kind: "filing", id: f.id } }}
+              />
+              <button onClick={() => onDone(f)} className="rounded-full bg-raise px-3.5 py-1.5 font-bold">
                 Done
               </button>
             </footer>
@@ -119,15 +122,15 @@ export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMu
   );
 }
 
-function whatsappText(f: Filing) {
+function shareTextOf(f: Filing) {
   const e = f.enrichment;
   const pct = (a: number | null, b: number | null) => (a == null || b == null || b <= 0 ? "–" : `${a >= b ? "+" : "−"}${Math.abs(((a - b) / b) * 100).toFixed(1)}%`);
   const head = `*${f.ticker}* · ${CATEGORY_LABEL[f.category]}`;
   if (e?.kind === "results") {
     const row = (l: string, t: { cur: number | null; prevQ: number | null; prevY: number | null }) => `${l}: ₹${t.cur?.toLocaleString("en-IN") ?? "–"} cr (QoQ ${pct(t.cur, t.prevQ)}, YoY ${pct(t.cur, t.prevY)})`;
-    return shareText([head + ` · ${e.period.split(" (")[0]}`, e.verdict, row("Revenue", e.revenue), row(e.isLender ? "PPOP" : "EBITDA", e.ebitda), row("PBT", e.pbt), row("PAT", e.pat)]);
+    return [head + ` · ${e.period.split(" (")[0]}`, e.verdict, row("Revenue", e.revenue), row(e.isLender ? "PPOP" : "EBITDA", e.ebitda), row("PBT", e.pbt), row("PAT", e.pat)].join("\n");
   }
-  return shareText([head, filingLine(f)]);
+  return [head, filingLine(f)].join("\n");
 }
 
 function Headline({ f }: { f: Filing }) {

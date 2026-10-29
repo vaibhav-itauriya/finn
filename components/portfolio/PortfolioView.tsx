@@ -11,10 +11,13 @@ import { Icon } from "../Icon";
 import { Sparkline } from "../Sparkline";
 import { PriceChart } from "../research/Financials";
 import { askFinn } from "../copilot/Copilot";
-import { inr, signed, summarise, type Position } from "@/lib/client/portfolio";
+import { ShareButton } from "../share/Share";
+import { inr, sectorMix, SECTOR_PALETTE, signed, summarise, type Position } from "@/lib/client/portfolio";
+import { SummaryCard } from "./SummaryCard";
 import { useRules } from "@/lib/client/prefs";
 import { fmtPct, relTime } from "@/lib/client/format";
 import { squarify } from "@/lib/client/treemap";
+import { useScreenContext } from "@/lib/client/screen";
 import { filingLine } from "@/lib/feed";
 import { CATEGORY_LABEL } from "@/lib/push/classify";
 
@@ -27,9 +30,6 @@ const SORTS: { k: SortKey; label: string }[] = [
   { k: "m3", label: "3M" },
   { k: "name", label: "A–Z" },
 ];
-
-// Sector colours: one hue each, readable in both themes.
-const PALETTE = ["#0E8A8A", "#3B82C4", "#8B5CF6", "#D97706", "#DB2777", "#059669", "#64748B", "#0EA5E9", "#B45309", "#7C3AED", "#16A34A", "#E11D48", "#0891B2", "#A16207"];
 
 /** Day-change colour for heatmap tiles: deeper with bigger moves, capped at ±3%. */
 function heat(day: number | null) {
@@ -63,19 +63,8 @@ export function PortfolioView({ digest }: { digest: Digest }) {
   const rows = [...s.positions].sort((a, b) =>
     sort === "name" ? a.h.ticker.localeCompare(b.h.ticker) : sort === "day" ? (b.day ?? 0) - (a.day ?? 0) : sort === "m1" ? (b.m1 ?? 0) - (a.m1 ?? 0) : sort === "m3" ? (b.m3 ?? 0) - (a.m3 ?? 0) : (b.value ?? 0) - (a.value ?? 0),
   );
-  const sectors = useMemo(() => {
-    const m = new Map<string, { value: number; pnl: number; prev: number; tickers: string[] }>();
-    for (const p of s.positions) {
-      const x = m.get(p.h.sector) || { value: 0, pnl: 0, prev: 0, tickers: [] };
-      x.value += p.value ?? 0;
-      x.pnl += p.dayPnl ?? 0;
-      x.prev += (p.value ?? 0) - (p.dayPnl ?? 0);
-      x.tickers.push(p.h.ticker);
-      m.set(p.h.sector, x);
-    }
-    return [...m.entries()].map(([name, x], i) => ({ name, ...x, day: x.prev ? (x.pnl / x.prev) * 100 : 0, color: PALETTE[i % PALETTE.length] })).sort((a, b) => b.value - a.value);
-  }, [s]);
-  const sectorColor = (name: string) => sectors.find((x) => x.name === name)?.color ?? PALETTE[0];
+  const sectors = useMemo(() => sectorMix(s), [s]);
+  const sectorColor = (name: string) => sectors.find((x) => x.name === name)?.color ?? SECTOR_PALETTE[0];
 
   const movers = [...s.positions].filter((p) => p.dayPnl != null).sort((a, b) => (b.dayPnl ?? 0) - (a.dayPnl ?? 0));
   const contributors = [...movers.slice(0, 2), ...movers.slice(-2).reverse()];
@@ -85,29 +74,7 @@ export function PortfolioView({ digest }: { digest: Digest }) {
   return (
     <main>
       <AppHeader />
-      <section className="card mx-4 mt-2 p-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-[12px] font-semibold text-dim">Current value · {digest.portfolio.length} holdings</h1>
-            <p className="mt-1 text-[30px] font-extrabold leading-none tracking-tight num">{inr(s.value)}</p>
-          </div>
-          <button onClick={() => askFinn("How did my portfolio do and why?")} className="flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-1.5 text-[12px] font-bold text-brand" aria-label="Ask FINN about your portfolio">
-            <Icon name="mic" size={14} /> Explain
-          </button>
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
-          <Stat label="Last session" value={signed(s.dayPnl, (v) => inr(v, true))} sub={fmtPct(s.dayPct, 2)} tone={s.dayPnl} />
-          <Stat label="1 month" value={fmtPct(s.m1Pct, 1)} tone={s.m1Pct ?? 0} />
-          <Stat label="Breadth" value={`${s.up}↑ ${s.down}↓`} />
-        </div>
-        {/* Sector mix as one stacked bar */}
-        <div className="mt-3 flex h-2 gap-px overflow-hidden rounded-full" role="img" aria-label="Sector mix">
-          {sectors.map((x) => (
-            <span key={x.name} style={{ width: `${(x.value / s.value) * 100}%`, background: x.color }} className="h-full" title={`${x.name} ${((x.value / s.value) * 100).toFixed(0)}%`} />
-          ))}
-        </div>
-        <p className="mt-2 text-[10.5px] leading-snug text-dim">Mock quantities for the demo. End-of-day prices from Yahoo Finance as of {s.asOf}.</p>
-      </section>
+      <SummaryCard s={s} sectors={sectors} holdings={digest.portfolio.length} />
 
       {contributors.length > 0 && (
         <section className="mt-4">
@@ -320,6 +287,9 @@ function HoldingSheet({ p, weight, hot, filings, onClose }: { p: Position; weigh
     };
   }, [onClose]);
   const recent = filings.filter((f) => f.tier !== "routine").slice(0, 5);
+  useScreenContext(
+    `Holding sheet for ${p.h.name} (${p.h.ticker}), ${p.h.sector}. ${p.h.qty} shares at ₹${p.ltp}, worth ${p.value != null ? inr(p.value) : "–"}, ${weight.toFixed(1)}% of the portfolio. Last session ${fmtPct(p.day, 2)}, 1 month ${fmtPct(p.m1, 1)}, 3 months ${fmtPct(p.m3, 1)}, volume ${p.volX?.toFixed(1)}x its 20-day average.${hot ? " This move crossed the user's alert thresholds." : ""}\nRecent filings:\n${recent.map((f) => `- ${f.ts.slice(0, 10)} ${CATEGORY_LABEL[f.category]}: ${filingLine(f)}`).join("\n") || "none material in 30 days"}`,
+  );
   const routine = filings.filter((f) => f.tier === "routine").length;
   return (
     <>
@@ -341,9 +311,21 @@ function HoldingSheet({ p, weight, hot, filings, onClose }: { p: Position; weigh
               {p.h.ticker} · {p.h.sector} · {p.h.size} cap
             </p>
           </div>
-          <button onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-raise" aria-label="Close">
-            <Icon name="x" size={16} />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <ShareButton
+              label=""
+              className="grid h-8 w-8 place-items-center rounded-full bg-raise"
+              payload={{
+                title: `${p.h.name} (${p.h.ticker})`,
+                text: `*${p.h.name}* (${p.h.ticker})\n₹${p.ltp?.toLocaleString("en-IN")} · day ${fmtPct(p.day, 2)} · 1M ${fmtPct(p.m1, 1)}${recent[0] ? `\nLatest: ${filingLine(recent[0])}` : ""}`,
+                path: `/portfolio?h=${p.h.ticker}`,
+                bot: { kind: "holding", ticker: p.h.ticker },
+              }}
+            />
+            <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-raise" aria-label="Close">
+              <Icon name="x" size={16} />
+            </button>
+          </div>
         </div>
 
         <PriceChart ticker={p.h.ticker} bare />

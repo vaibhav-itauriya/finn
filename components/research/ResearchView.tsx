@@ -8,9 +8,31 @@ import type { Ledger, Outcome, Thesis } from "@/lib/pull/ledger";
 import type { NumbersView } from "@/lib/pull/numbers";
 import { Cite } from "./Cite";
 import { Financials } from "./Financials";
-import { ShareWhatsApp } from "../ShareWhatsApp";
+import { ShareButton } from "../share/Share";
 import { askFinn } from "../copilot/Copilot";
 import { Icon } from "../Icon";
+import { useScreenContext } from "@/lib/client/screen";
+
+/** The report as plain text, so Ask FINN can explain exactly what this screen shows. */
+function researchText(ticker: string, n: NumbersView, ledger: Ledger | null, thesis: Thesis | null): string {
+  const out = [`Research report for ${n.header.name} (${ticker}), ${n.header.sector || ""}. Built from its own earnings calls, annual report and reported financials.`];
+  out.push(`Key numbers: ${n.snapshot.map((x) => `${x.label} ${x.value}${x.sub ? ` (${x.sub})` : ""}`).join("; ")}.`);
+  if (ledger) {
+    const c = ledger.credibility;
+    out.push(`Verdict: credibility ${c.score}/10. ${c.line}`);
+    out.push("Promise ledger:", ...ledger.rows.map((r) => `- ${r.outcome.toUpperCase()}: ${r.promise} (made ${r.made}, horizon ${r.horizon}). Evidence: ${r.evidence}`));
+    if (ledger.divergences.length) out.push("Story vs numbers:", ...ledger.divergences.map((d) => `- ${d.claim} vs ${d.reality}`));
+    if (ledger.currentGuidance.length) out.push("Current guidance:", ...ledger.currentGuidance.map((g) => `- ${g.statement} (${g.horizon})`));
+  } else out.push("The promise check is still running or couldn't be built.");
+  if (thesis) {
+    if (thesis.business) out.push(`Business: ${thesis.business.summary}`);
+    out.push("Bull case:", ...thesis.bull.map((b) => `- ${b.point}`), "Bear case:", ...thesis.bear.map((b) => `- ${b.point}`));
+    if (thesis.watch.length) out.push(`Watch next: ${thesis.watch.join("; ")}`);
+  }
+  const sig = [...n.trajectory.signals, ...n.balance.signals, ...n.cash.signals].map((x) => `- ${x.text}`);
+  if (sig.length) out.push("Signals from the financials:", ...sig);
+  return out.join("\n");
+}
 import { AppHeader } from "../AppHeader";
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -97,6 +119,7 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
   }, [ticker, initial]);
 
   const doneCalls = calls.filter((c): c is CallExtract => Boolean(c));
+  useScreenContext(numbers ? researchText(ticker, numbers, ledger, thesis) : null);
   const verified = doneCalls.reduce((a, c) => a + c.guidance.filter((g) => g.verified).length, 0);
   const totalQuotes = doneCalls.reduce((a, c) => a + c.guidance.length, 0);
 
@@ -402,12 +425,23 @@ function Verdict({ ledger, ticker }: { ledger: Ledger; ticker: string }) {
         <span className="ml-auto text-dim num">Credibility {c.score}/10</span>
       </div>
       <footer className="mt-3 flex items-center gap-4 border-t border-rule pt-2.5 text-[12px]">
-        <ShareWhatsApp
-          text={`*${ticker}*: kept ${c.delivered} of ${judged} promises (credibility ${c.score}/10)\n${c.line}\n${ledger.rows
-            .slice(0, 3)
-            .map((r) => `• ${r.outcome}: ${r.promise}`)
-            .join("\n")}`}
-          path={`/research/${ticker}`}
+        <ShareButton
+          payload={{
+            title: `${ticker} · promises vs delivery`,
+            text: `*${ticker}*: kept ${c.delivered} of ${judged} promises (credibility ${c.score}/10)\n${c.line}\n${ledger.rows
+              .slice(0, 4)
+              .map((r) => `• ${r.outcome}: ${r.promise}`)
+              .join("\n")}`,
+            path: `/research/${ticker}`,
+            bot: {
+              kind: "research",
+              ticker,
+              summary: `Kept ${c.delivered} of ${judged} promises · credibility ${c.score}/10\n${c.line}\n${ledger.rows
+                .slice(0, 5)
+                .map((r) => `• ${r.outcome}: ${r.promise}`)
+                .join("\n")}`,
+            },
+          }}
         />
         <button onClick={() => askFinn(`Explain ${ticker}'s promises versus delivery in simple words`)} className="flex items-center gap-1 font-semibold text-brand">
           <Icon name="speaker" size={14} /> Explain aloud

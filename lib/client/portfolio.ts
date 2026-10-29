@@ -78,3 +78,32 @@ export const inr = (x: number, compact = false) => {
 };
 
 export const signed = (x: number, fmt: (v: number) => string) => `${x > 0 ? "+" : x < 0 ? "−" : ""}${fmt(Math.abs(x))}`;
+
+// Sector colours: one hue each, readable in both themes.
+export const SECTOR_PALETTE = ["#0E8A8A", "#3B82C4", "#8B5CF6", "#D97706", "#DB2777", "#059669", "#64748B", "#0EA5E9", "#B45309", "#7C3AED", "#16A34A", "#E11D48", "#0891B2", "#A16207"];
+
+export interface SectorSlice {
+  name: string;
+  value: number;
+  pnl: number;
+  prev: number;
+  day: number;
+  tickers: string[];
+  color: string;
+}
+
+/** Holdings grouped by sector, largest first, each with a stable colour. */
+export function sectorMix(s: PortfolioSummary): SectorSlice[] {
+  const m = new Map<string, { value: number; pnl: number; prev: number; tickers: string[] }>();
+  for (const p of s.positions) {
+    const x = m.get(p.h.sector) || { value: 0, pnl: 0, prev: 0, tickers: [] };
+    x.value += p.value ?? 0;
+    x.pnl += p.dayPnl ?? 0;
+    x.prev += (p.value ?? 0) - (p.dayPnl ?? 0);
+    x.tickers.push(p.h.ticker);
+    m.set(p.h.sector, x);
+  }
+  return [...m.entries()]
+    .map(([name, x], i) => ({ name, ...x, day: x.prev ? (x.pnl / x.prev) * 100 : 0, color: SECTOR_PALETTE[i % SECTOR_PALETTE.length] }))
+    .sort((a, b) => b.value - a.value);
+}

@@ -6,7 +6,8 @@ import type { Digest } from "@/lib/types";
 import { AppHeader } from "../AppHeader";
 import { Icon, type IconName } from "../Icon";
 import { Sparkline } from "../Sparkline";
-import { inr, signed, summarise } from "@/lib/client/portfolio";
+import { sectorMix, summarise } from "@/lib/client/portfolio";
+import { SummaryCard } from "../portfolio/SummaryCard";
 import { moveAlerts } from "@/lib/client/alerts";
 import { bundle } from "@/lib/client/bundle";
 import { useRules } from "@/lib/client/prefs";
@@ -22,6 +23,7 @@ import { useState } from "react";
 export function Home({ digest }: { digest: Digest }) {
   const [rules, , ready] = useRules();
   const s = useMemo(() => summarise(digest), [digest]);
+  const sectors = useMemo(() => sectorMix(s), [s]);
   const gen = new Date(digest.engine.generatedAt).getTime();
 
   const day24 = useMemo(() => {
@@ -50,38 +52,17 @@ export function Home({ digest }: { digest: Digest }) {
 
       <Intro />
 
-      {/* Portfolio glance */}
-      <section className="card mx-4 mt-2 p-4" aria-labelledby="pf">
-        <div className="flex items-baseline justify-between">
-          <h2 id="pf" className="text-[12px] font-semibold text-dim">
-            Current value
-          </h2>
-          <Link href="/portfolio" className="flex items-center gap-0.5 text-[12px] font-semibold text-brand">
-            {digest.portfolio.length} holdings <Icon name="chev" size={14} />
+      {/* Portfolio glance: the same card as the Portfolio tab */}
+      <SummaryCard
+        s={s}
+        sectors={sectors}
+        holdings={digest.portfolio.length}
+        action={
+          <Link href="/portfolio" className="flex items-center gap-0.5 rounded-full bg-brand-soft px-3 py-1.5 text-[12px] font-bold text-brand">
+            Portfolio <Icon name="chev" size={14} />
           </Link>
-        </div>
-        <p className="mt-1 text-[30px] font-bold tracking-tight num">{inr(s.value)}</p>
-        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-rule pt-3 text-[12px]">
-          <div>
-            <p className="text-dim">Day&apos;s P&amp;L</p>
-            <p className={clsx("mt-0.5 font-bold num", s.dayPnl >= 0 ? "text-up" : "text-down")}>
-              {signed(s.dayPnl, (v) => inr(v, true))}
-              <span className="block text-[11px] font-semibold">{fmtPct(s.dayPct, 2)}</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-dim">1 month</p>
-            <p className={clsx("mt-0.5 font-bold num", (s.m1Pct ?? 0) >= 0 ? "text-up" : "text-down")}>{fmtPct(s.m1Pct, 1)}</p>
-            <p className="text-[11px] text-dim">value change</p>
-          </div>
-          <div>
-            <p className="text-dim">Breadth</p>
-            <p className="mt-0.5 font-bold num">
-              <span className="text-up">{s.up}▲</span> <span className="text-down">{s.down}▼</span>
-            </p>
-          </div>
-        </div>
-      </section>
+        }
+      />
 
       {/* Holdings strip: biggest movers first */}
       <section className="mt-4" aria-label="Holdings, biggest movers first">

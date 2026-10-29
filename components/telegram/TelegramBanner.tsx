@@ -73,28 +73,3 @@ export function TelegramBanner({ compact }: { compact?: boolean }) {
     </section>
   );
 }
-
-/** Small "send this card to my Telegram" action. Hidden until Telegram is connected. */
-export function SendToTelegram({ body }: { body: Record<string, unknown> }) {
-  const tg = useTelegram();
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
-  if (!tg.conn) return null;
-  return (
-    <button
-      onClick={async () => {
-        setState("sending");
-        try {
-          await tg.send(body);
-          setState("sent");
-        } catch {
-          setState("error");
-        }
-      }}
-      className={clsx("flex items-center gap-1 font-semibold", state === "error" ? "text-down" : "text-brand")}
-      aria-label="Send to my Telegram"
-    >
-      <Icon name={state === "sent" ? "check" : "send"} size={14} />
-      {state === "sent" ? "Sent" : state === "sending" ? "Sending" : state === "error" ? "Retry" : "Telegram"}
-    </button>
-  );
-}

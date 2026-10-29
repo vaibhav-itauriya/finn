@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "../Icon";
 import type { Brief as B } from "@/lib/push/brief";
 import { speak, stopSpeaking, useSpeaking } from "@/lib/client/speech";
+import { ShareButton } from "../share/Share";
 
 const spoken = (b: B, hours: number) =>
   [`Here's your ${hours >= 48 ? `${Math.round(hours / 24)} day` : `${hours} hour`} read.`, b.headline + ".", ...b.bullets.map((x) => `${x.ticker}: ${x.text}`), b.quiet ? `${b.quiet} holdings had nothing material.` : ""].join(" ");
@@ -45,9 +46,20 @@ export function Brief({ hours, auto }: { hours: number; auto?: boolean }) {
         <Icon name="spark" size={15} />
         FINN&apos;s read on the last {hours >= 48 ? `${Math.round(hours / 24)} days` : `${hours} hours`}
         {state === "done" && b && (
+          <ShareButton
+            className="ml-auto rounded-full bg-hero-ink/15 px-2.5 py-1 text-[11.5px] font-bold !text-hero-ink"
+            payload={{
+              title: `FINN's read on the last ${hours >= 48 ? `${Math.round(hours / 24)} days` : `${hours} hours`}`,
+              text: `*${b.headline}*\n${b.bullets.map((x) => `• ${x.ticker}: ${x.text}`).join("\n")}`,
+              path: `/digest?w=${hours <= 24 ? "24h" : hours <= 72 ? "3d" : hours <= 168 ? "7d" : "30d"}`,
+              bot: { kind: "digest", hours },
+            }}
+          />
+        )}
+        {state === "done" && b && (
           <button
             onClick={() => (speaking ? stopSpeaking() : speak(spoken(b, hours)))}
-            className="ml-auto flex items-center gap-1 rounded-full bg-hero-ink/15 px-2.5 py-1 text-[11.5px] font-bold"
+            className="flex items-center gap-1 rounded-full bg-hero-ink/15 px-2.5 py-1 text-[11.5px] font-bold"
             aria-label={speaking ? "Stop reading" : "Listen to the brief"}
           >
             <Icon name={speaking ? "stop" : "speaker"} size={13} />

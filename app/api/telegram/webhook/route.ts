@@ -91,12 +91,12 @@ async function handle(m: Msg, app: string) {
   const histKey = `finn:hist:${chat}`;
   const history = ((await kv<string[]>("LRANGE", histKey, 0, 5)) || []).reverse().map((x) => JSON.parse(x) as Turn);
   try {
-    const r = await ask({
+    const r = await Promise.race([ask({
       q: text || undefined,
       audio: voice ? { data: await fileBase64(voice.file_id), mime: (voice.mime_type || "audio/ogg").split(";")[0] } : undefined,
       history,
       rules: await rulesOf(chat),
-    });
+    }), new Promise<never>((_, rej) => setTimeout(() => rej(new Error("quota: too slow")), 50000))]);
     const heard = voice && r.heard ? `🎙 <i>${esc(r.heard)}</i>\n\n` : "";
     await send(chat, heard + esc(r.reply), r.path ? [[{ text: r.label || "Open in FINN", url: app + r.path }]] : undefined);
     await kv("LPUSH", histKey, JSON.stringify({ role: "user", text: r.heard || text }), JSON.stringify({ role: "finn", text: r.reply }));

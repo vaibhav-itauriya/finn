@@ -9,7 +9,7 @@ import { Icon } from "../Icon";
 import { barStats, moveAlerts } from "@/lib/client/alerts";
 import { useRules } from "@/lib/client/prefs";
 import { fmtPct, istDay } from "@/lib/client/format";
-import { SendToTelegram } from "../telegram/TelegramBanner";
+import { ShareButton } from "../share/Share";
 
 const WINDOWS = [
   { k: 1, label: "Last session" },
@@ -93,10 +93,18 @@ export function AnomaliesView({ digest }: { digest: Digest }) {
               <Link href={`/research/${m.ticker}`} className="font-semibold text-brand">
                 Research
               </Link>
-              <Link href={`/digest?w=7d`} className="font-semibold text-brand">
-                Recent filings
+              <Link href={`/digest?t=${m.ticker}`} className="font-semibold text-brand">
+                Filings
               </Link>
-              <SendToTelegram body={{ kind: "move", ticker: m.ticker, d: m.d, rules }} />
+              <ShareButton
+                className="ml-auto"
+                payload={{
+                  title: `${m.ticker} · Unusual move`,
+                  text: `*${m.ticker}* · Unusual move on ${m.d}\nClosed ₹${m.close.toLocaleString("en-IN")}, ${m.change >= 0 ? "+" : "−"}${Math.abs(m.change).toFixed(1)}% on ${m.volX.toFixed(1)}× its 20-day volume`,
+                  path: `/portfolio?h=${m.ticker}`,
+                  bot: { kind: "move", ticker: m.ticker, d: m.d, rules },
+                }}
+              />
             </div>
           </li>
         ))}

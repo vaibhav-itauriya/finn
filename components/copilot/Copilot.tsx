@@ -1,5 +1,5 @@
 "use client";
-// Ask FINN: a mic button on every screen. Tap, speak (English or Hindi), and FINN answers aloud
+// Ask FINN: the mic in the middle of the tab bar, on every screen. Tap, speak (English or Hindi), and FINN answers aloud
 // from the portfolio's own data, then offers the screen that shows the detail. Typing works too.
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter, usePathname } from "next/navigation";
@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { Icon } from "../Icon";
 import { canRecord, recognizer, recordAudio, speak, stopSpeaking, useSpeaking } from "@/lib/client/speech";
+import { screenContext } from "@/lib/client/screen";
 
 interface Msg {
   role: "user" | "finn";
@@ -41,6 +42,7 @@ export function Copilot() {
   const [voiceOn, setVoiceOn] = useState(true);
   const [lang, setLang] = useState<"en-IN" | "hi-IN">("en-IN");
   const speaking = useSpeaking();
+  const busyRef = useRef(false);
   const recRef = useRef<ReturnType<typeof recognizer>>(null);
   const stopRec = useRef<{ stop?: () => void }>({});
   const listRef = useRef<HTMLDivElement>(null);
@@ -54,19 +56,6 @@ export function Copilot() {
       /* defaults */
     }
   }, []);
-  // Get out of the way while reading: hide on scroll down, come back on scroll up.
-  const [hidden, setHidden] = useState(false);
-  useEffect(() => {
-    let last = window.scrollY;
-    const on = () => {
-      const y = window.scrollY;
-      if (Math.abs(y - last) < 8) return;
-      setHidden(y > last && y > 120);
-      last = y;
-    };
-    window.addEventListener("scroll", on, { passive: true });
-    return () => window.removeEventListener("scroll", on);
-  }, []);
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [msgs, busy, interim]);
@@ -76,6 +65,7 @@ export function Copilot() {
       setOpen(true);
       const q = (e as CustomEvent<string | undefined>).detail;
       if (q) setTimeout(() => sendRef.current(q), 50);
+      else if (!msgsRef.current.length) setTimeout(() => listenRef.current(), 250); // one tap to talk
     };
     window.addEventListener("finn-ask", on);
     return () => window.removeEventListener("finn-ask", on);
@@ -84,19 +74,23 @@ export function Copilot() {
 
   const send = useCallback(
     async (q: string, audio?: { data: string; mime: string }) => {
-      if (!q.trim() && !audio) return;
+      if ((!q.trim() && !audio) || busyRef.current) return;
+      busyRef.current = true;
       stopSpeaking();
       const history = msgs.filter((m) => !m.error).map((m) => ({ role: m.role, text: m.text }));
       if (q) setMsgs((m) => [...m, { role: "user", text: q }]);
       setText("");
       setBusy(true);
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 40000);
       try {
         const r = await fetch("/api/copilot", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ q, audio, history, rules: readRules() }),
+          body: JSON.stringify({ q, audio, history, rules: readRules(), screen: screenContext(), page: window.location.pathname }),
+          signal: ctrl.signal,
         });
-        const j = await r.json();
+        const j = await r.json().catch(() => ({ error: "FINN didn't answer in time. Try again in a moment." }));
         if (!r.ok) throw new Error(j.error || "Couldn't answer that");
         setMsgs((m) => [...(audio && j.heard ? [...m, { role: "user" as const, text: j.heard }] : m), { role: "finn", text: j.reply, path: j.path, label: j.label }]);
         if (voiceOn) speak(j.reply, j.lang);
@@ -108,8 +102,11 @@ export function Copilot() {
           }, 900);
         }
       } catch (e) {
-        setMsgs((m) => [...m, { role: "finn", text: (e as Error).message, error: true }]);
+        const msg = (e as Error).name === "AbortError" ? "That took too long, the free model is busy. Try again in a moment." : (e as Error).message;
+        setMsgs((m) => [...m, { role: "finn", text: msg, error: true }]);
       } finally {
+        clearTimeout(timer);
+        busyRef.current = false;
         setBusy(false);
       }
     },
@@ -120,6 +117,8 @@ export function Copilot() {
   const sendRef = useRef(send);
   sendRef.current = send;
   const interimRef = useRef("");
+  const msgsRef = useRef(msgs);
+  msgsRef.current = msgs;
 
   const listen = useCallback(async () => {
     stopSpeaking();
@@ -172,11 +171,8 @@ export function Copilot() {
     setMsgs((m) => [...m, { role: "finn", text: "This browser can't use the microphone. Type your question instead.", error: true }]);
   }, [listening, lang]);
 
-  const openSheet = () => {
-    setOpen(true);
-    // One tap to talk: start listening straight away the first time.
-    if (!msgs.length) setTimeout(() => listen(), 250);
-  };
+  const listenRef = useRef(listen);
+  listenRef.current = listen;
   const close = () => {
     setOpen(false);
     recRef.current?.abort();
@@ -208,17 +204,6 @@ export function Copilot() {
 
   return (
     <>
-      <button
-        onClick={openSheet}
-        aria-label="Ask FINN by voice"
-        className={clsx(
-          "fixed right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-brand text-brand-ink shadow-[0_8px_24px_-6px_rgb(var(--brand)/0.6)] transition-all duration-200 active:scale-95 bottom-[calc(76px+env(safe-area-inset-bottom))] min-[560px]:right-[calc(50%-244px)]",
-          hidden && "pointer-events-none translate-y-6 scale-75 opacity-0",
-        )}
-      >
-        <Icon name="mic" size={24} />
-      </button>
-
       <AnimatePresence>
         {open && (
           <>

@@ -12,14 +12,15 @@ import { FilingItem } from "./FilingItem";
 import { bundle, type Bundle } from "@/lib/client/bundle";
 import { Sparkline } from "../Sparkline";
 import { AppHeader } from "../AppHeader";
-import { SendToTelegram } from "../telegram/TelegramBanner";
+import { ShareButton } from "../share/Share";
+import { useScreenContext } from "@/lib/client/screen";
+import { filingLine } from "@/lib/feed";
 import { Brief } from "./Brief";
 import { Icon } from "../Icon";
 
-type WindowKey = "since" | "24h" | "3d" | "7d" | "30d";
-const WINDOWS: { k: WindowKey; label: string; hours?: number }[] = [
-  { k: "since", label: "Since last visit" },
-  { k: "24h", label: "24h", hours: 24 },
+type WindowKey = "24h" | "3d" | "7d" | "30d";
+const WINDOWS: { k: WindowKey; label: string; hours: number }[] = [
+  { k: "24h", label: "24 hours", hours: 24 },
   { k: "3d", label: "3 days", hours: 72 },
   { k: "7d", label: "7 days", hours: 168 },
   { k: "30d", label: "30 days", hours: 720 },
@@ -29,7 +30,8 @@ export function Today({ digest }: { digest: Digest }) {
   const [rules, setRules, rulesReady] = useRules();
   const [cleared, setCleared] = useCleared();
   const lastVisit = useLastVisit();
-  const [win, setWin] = useState<WindowKey>("since");
+  // The brief's default: the last 24 hours. What's new since the last visit is badged inside it.
+  const [win, setWin] = useState<WindowKey>("24h");
   const [autoBrief, setAutoBrief] = useState(false);
   // Deep links: ?w=24h from action keys, ?f=<filing> from a notification, ?t=TICKER from Portfolio.
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -56,13 +58,8 @@ export function Today({ digest }: { digest: Digest }) {
   const [showCleared, setShowCleared] = useState(false);
 
   const generated = new Date(digest.engine.generatedAt).getTime();
-  // "Since last visit" never shrinks below a day, so a second visit the same evening is not empty.
-  const since = useMemo(() => {
-    const w = WINDOWS.find((x) => x.k === win)!;
-    if (w.hours) return new Date(generated - w.hours * 3600e3);
-    const lv = lastVisit ? new Date(lastVisit).getTime() : 0;
-    return new Date(Math.min(lv || Infinity, generated - 24 * 3600e3));
-  }, [win, lastVisit, generated]);
+  const since = useMemo(() => new Date(generated - WINDOWS.find((x) => x.k === win)!.hours * 3600e3), [win, generated]);
+  const isFresh = (ts: string) => Boolean(lastVisit) && ts > lastVisit!;
 
   const clearedSet = useMemo(() => new Set(cleared.ids), [cleared]);
   const mutedSet = useMemo(() => new Set(rules.muted), [rules.muted]);
@@ -84,6 +81,13 @@ export function Today({ digest }: { digest: Digest }) {
   const openMoves = moves.filter((m) => !clearedSet.has(`mv:${m.ticker}:${m.d}`));
 
   const needs = lead.length + openMoves.length;
+  const freshCount = [...lead, ...glance].filter((b) => isFresh(b.lead.ts)).length;
+  useScreenContext(
+    `Digest for the last ${WINDOWS.find((w) => w.k === win)!.label}${only ? `, ${only} only` : ""}: ${needs} things need the user.\n${lead
+      .slice(0, 12)
+      .map((b) => `- ${b.lead.ticker} ${CATEGORY_LABEL[b.lead.category]}: ${filingLine(b.lead)}`)
+      .join("\n")}\n${openMoves.map((m) => `- ${m.ticker} unusual move ${m.d}: ${m.change.toFixed(1)}% on ${m.volX.toFixed(1)}x volume`).join("\n")}`,
+  );
 
   const clear = (id: string, label: string) => {
     setCleared((c) => ({ ids: [...c.ids.filter((x) => x !== id), id].slice(-800) }));
@@ -116,8 +120,13 @@ export function Today({ digest }: { digest: Digest }) {
           {needs === 0 ? "You're caught up." : <>{needs} {needs === 1 ? "thing needs" : "things need"} you</>}
         </h1>
         <p className="mt-1 text-[13px] leading-snug text-dim">
-          {inWindow.length} filings and {digest.prices.length} price charts read {win === "since" ? "since your last visit" : `in the last ${WINDOWS.find((w) => w.k === win)!.label}`}.{" "}
+          {inWindow.length} filings and {digest.prices.length} price charts read in the last {WINDOWS.find((w) => w.k === win)!.label}.{" "}
           {folded.length > 0 && <>{folded.length} routine ones folded away.</>}
+          {freshCount > 0 && lastVisit && (
+            <span className="mt-1 block font-semibold text-flag">
+              {freshCount} new since your last visit ({new Date(lastVisit).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", day: "numeric", month: "short" })}), marked New.
+            </span>
+          )}
         </p>
         <div className="scroll-x -mx-4 mt-3 flex gap-2 overflow-x-auto px-4" role="tablist" aria-label="Time window">
           {WINDOWS.map((w) => (
@@ -159,7 +168,7 @@ export function Today({ digest }: { digest: Digest }) {
         </section>
       )}
 
-      {!only && <Brief hours={WINDOWS.find((w) => w.k === win)?.hours ?? Math.max(24, Math.round((generated - since.getTime()) / 3600e3))} auto={autoBrief} />}
+      {!only && <Brief hours={WINDOWS.find((w) => w.k === win)!.hours} auto={autoBrief} />}
 
       {/* What needs you: material filings + threshold breaches */}
       <section className="mt-5" aria-labelledby="needs">
@@ -170,7 +179,7 @@ export function Today({ digest }: { digest: Digest }) {
           <AnimatePresence initial={false}>
             {lead.map((b, i) => (
               <motion.div key={b.key} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}>
-                <FilingItem f={b.lead} related={b.related} variant="lead" defaultOpen={i < 3} onDone={(x) => clear(x.id, x.ticker)} onMute={mute} />
+                <FilingItem f={b.lead} related={b.related} variant="lead" defaultOpen={i < 3} fresh={isFresh(b.lead.ts)} onDone={(x) => clear(x.id, x.ticker)} onMute={mute} />
               </motion.div>
             ))}
           </AnimatePresence>
@@ -189,7 +198,7 @@ export function Today({ digest }: { digest: Digest }) {
           <div className="card mx-4 px-4 py-8 text-center">
             <span className="stamp text-up">Clear</span>
             <p className="mt-3 text-[14px] text-dim">
-              Nothing material {win === "since" ? "since you last looked" : "in this window"}. {leadAll.length > 0 && <>You cleared {leadAll.length}.</>}
+              Nothing material in this window. {leadAll.length > 0 && <>You cleared {leadAll.length}.</>}
             </p>
             {leadAll.length > 0 && (
               <button className="mt-2 text-[13px] font-semibold text-brand" onClick={() => setShowCleared((s) => !s)}>
@@ -214,7 +223,7 @@ export function Today({ digest }: { digest: Digest }) {
           </h2>
           <ul className="mx-4 mt-2 space-y-2">
             {glance.map((b) => (
-              <FilingItem key={b.key} f={b.lead} related={b.related} variant="glance" onDone={(x) => clear(x.id, x.ticker)} onMute={mute} />
+              <FilingItem key={b.key} f={b.lead} related={b.related} variant="glance" fresh={isFresh(b.lead.ts)} onDone={(x) => clear(x.id, x.ticker)} onMute={mute} />
             ))}
           </ul>
         </section>
@@ -306,8 +315,16 @@ function MoveItem({ m, onDone, volX, moveAbs }: { m: MoveAlert; onDone: () => vo
         <Link href={`/research/${m.ticker}`} className="font-semibold text-brand">
           Research
         </Link>
-        <SendToTelegram body={{ kind: "move", ticker: m.ticker, d: m.d }} />
-        <button onClick={onDone} className="ml-auto rounded-full bg-raise px-3 py-1 font-bold">
+        <ShareButton
+          className="ml-auto"
+          payload={{
+            title: `${m.ticker} · Unusual move`,
+            text: `*${m.ticker}* · Unusual move on ${m.d}\nClosed ₹${m.close.toLocaleString("en-IN")}, ${m.change >= 0 ? "+" : "−"}${Math.abs(m.change).toFixed(1)}% on ${m.volX.toFixed(1)}× its 20-day volume`,
+            path: `/portfolio?h=${m.ticker}`,
+            bot: { kind: "move", ticker: m.ticker, d: m.d },
+          }}
+        />
+        <button onClick={onDone} className="rounded-full bg-raise px-3.5 py-1.5 font-bold">
           Done
         </button>
       </div>
