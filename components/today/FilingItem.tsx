@@ -1,4 +1,6 @@
 "use client";
+import { ShareWhatsApp, shareText } from "../ShareWhatsApp";
+import { filingLine } from "@/lib/feed";
 import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
@@ -96,6 +98,7 @@ export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMu
                 Research
               </Link>
               <SendToTelegram body={{ kind: "filing", id: f.id }} />
+              <ShareWhatsApp text={whatsappText(f)} path={`/digest?f=${encodeURIComponent(f.id)}`} />
               <button onClick={() => setWhy((w) => !w)} className="font-semibold text-dim">
                 Why?
               </button>
@@ -114,6 +117,17 @@ export function FilingItem({ f, related = [], variant, defaultOpen, onDone, onMu
       </motion.article>
     </li>
   );
+}
+
+function whatsappText(f: Filing) {
+  const e = f.enrichment;
+  const pct = (a: number | null, b: number | null) => (a == null || b == null || b <= 0 ? "–" : `${a >= b ? "+" : "−"}${Math.abs(((a - b) / b) * 100).toFixed(1)}%`);
+  const head = `*${f.ticker}* · ${CATEGORY_LABEL[f.category]}`;
+  if (e?.kind === "results") {
+    const row = (l: string, t: { cur: number | null; prevQ: number | null; prevY: number | null }) => `${l}: ₹${t.cur?.toLocaleString("en-IN") ?? "–"} cr (QoQ ${pct(t.cur, t.prevQ)}, YoY ${pct(t.cur, t.prevY)})`;
+    return shareText([head + ` · ${e.period.split(" (")[0]}`, e.verdict, row("Revenue", e.revenue), row(e.isLender ? "PPOP" : "EBITDA", e.ebitda), row("PBT", e.pbt), row("PAT", e.pat)]);
+  }
+  return shareText([head, filingLine(f)]);
 }
 
 function Headline({ f }: { f: Filing }) {

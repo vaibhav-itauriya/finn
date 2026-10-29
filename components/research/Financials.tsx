@@ -54,7 +54,8 @@ const RANGES = [
   { k: "5Y", days: 1827 },
 ] as const;
 
-function PriceChart({ ticker }: { ticker: string }) {
+export function PriceChart({ ticker, bare }: { ticker: string; bare?: boolean }) {
+  const wrap = bare ? "mt-1" : "card mx-4 mt-4 p-4";
   const [bars, setBars] = useState<Bar3[] | null>(null);
   const [err, setErr] = useState(false);
   const [range, setRange] = useState<(typeof RANGES)[number]["k"]>("1Y");
@@ -87,7 +88,7 @@ function PriceChart({ ticker }: { ticker: string }) {
 
   if (err)
     return (
-      <section className="card mx-4 mt-4 p-4 text-[12.5px] text-dim">
+      <section className={clsx(wrap, "text-[12.5px] text-dim")}>
         <h3 className="text-[14px] font-bold text-ink">Share price</h3>
         <p className="mt-1">Price history isn&apos;t available for {ticker} right now.</p>
       </section>
@@ -98,7 +99,7 @@ function PriceChart({ ticker }: { ticker: string }) {
   const VH = 26; // volume strip
   if (!view || view.pts.length < 2)
     return (
-      <section className="card mx-4 mt-4 p-4" aria-busy="true">
+      <section className={wrap} aria-busy="true">
         <h3 className="text-[14px] font-bold">Share price</h3>
         <div className="mt-3 h-[176px] animate-pulse rounded-xl bg-raise" />
       </section>
@@ -132,7 +133,7 @@ function PriceChart({ ticker }: { ticker: string }) {
   };
 
   return (
-    <section className="card mx-4 mt-4 p-4">
+    <section className={wrap}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[12px] text-dim">{hover == null ? "Share price" : date(cur[0])}</p>

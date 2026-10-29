@@ -8,6 +8,9 @@ import type { Ledger, Outcome, Thesis } from "@/lib/pull/ledger";
 import type { NumbersView } from "@/lib/pull/numbers";
 import { Cite } from "./Cite";
 import { Financials } from "./Financials";
+import { ShareWhatsApp } from "../ShareWhatsApp";
+import { askFinn } from "../copilot/Copilot";
+import { Icon } from "../Icon";
 import { AppHeader } from "../AppHeader";
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -170,8 +173,8 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
 
       {tab === "overview" && (
         <>
-          {transcripts.some((t) => t.kind === "ar") && <ArNote ticker={ticker} onlyAr={transcripts.every((t) => t.kind === "ar")} />}
-          {ledger && <Verdict ledger={ledger} />}
+          {transcripts.length > 0 && transcripts.filter((t) => t.kind !== "ar").length < 2 && <ArNote ticker={ticker} onlyAr={transcripts.every((t) => t.kind === "ar")} />}
+          {ledger && <Verdict ledger={ledger} ticker={ticker} />}
           {thesis && <BullBear thesis={thesis} />}
           {thesis?.business && <Business thesis={thesis} />}
           {noDocs && <NoDocs ticker={ticker} />}
@@ -375,7 +378,7 @@ const OUTCOME: Record<Outcome, { label: string; cls: string }> = {
   dropped: { label: "Dropped", cls: "text-down" },
 };
 
-function Verdict({ ledger }: { ledger: Ledger }) {
+function Verdict({ ledger, ticker }: { ledger: Ledger; ticker: string }) {
   // Counts come from the rows themselves, not the model's summary, so the headline always matches the ledger.
   const c = { ...ledger.credibility, delivered: 0, missed: 0, partly: 0, pending: 0, dropped: 0 };
   for (const r of ledger.rows) if (r.outcome in c) c[r.outcome] += 1;
@@ -398,6 +401,18 @@ function Verdict({ ledger }: { ledger: Ledger }) {
         )}
         <span className="ml-auto text-dim num">Credibility {c.score}/10</span>
       </div>
+      <footer className="mt-3 flex items-center gap-4 border-t border-rule pt-2.5 text-[12px]">
+        <ShareWhatsApp
+          text={`*${ticker}*: kept ${c.delivered} of ${judged} promises (credibility ${c.score}/10)\n${c.line}\n${ledger.rows
+            .slice(0, 3)
+            .map((r) => `• ${r.outcome}: ${r.promise}`)
+            .join("\n")}`}
+          path={`/research/${ticker}`}
+        />
+        <button onClick={() => askFinn(`Explain ${ticker}'s promises versus delivery in simple words`)} className="flex items-center gap-1 font-semibold text-brand">
+          <Icon name="speaker" size={14} /> Explain aloud
+        </button>
+      </footer>
     </section>
   );
 }
@@ -635,7 +650,7 @@ function Sources({
     <section className="mx-4 mt-6 text-[11.5px] leading-snug text-dim">
       <p>
         Sources: {ticker}&apos;s own{" "}
-        {transcripts.length > 0 && transcripts.every((t) => t.kind === "ar") ? "annual reports" : transcripts.some((t) => t.kind === "ar") ? "earnings-call transcripts and annual report" : "earnings-call transcripts"} {transcripts.length > 0 && `(${calls.map((c) => `${c.quarter}, ${c.pages} pages`).join("; ") || transcripts.map((t) => t.label).join(", ")})`} and
+        {transcripts.length > 0 && transcripts.every((t) => t.kind === "ar") ? "annual reports" : transcripts.some((t) => t.kind === "ar") ? "earnings-call transcripts and latest annual report" : "earnings-call transcripts"} {transcripts.length > 0 && `(${calls.map((c) => `${c.quarter}, ${c.pages} pages`).join("; ") || transcripts.map((t) => t.label).join(", ")})`} and
         reported financials{" "}
         {numbers && (
           <a href={numbers.header.screenerUrl} className="text-brand" target="_blank" rel="noreferrer">

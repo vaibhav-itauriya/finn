@@ -40,15 +40,17 @@ export async function snapshot(ticker: string): Promise<ResearchReport | null> {
 }
 
 /**
- * Source documents for the promise check: Screener's transcript links merged with the exchange
- * copies. Some companies (OFSS, for one) never hold earnings calls, and some hold one a year, so
- * the latest annual reports fill in: management's own outlook, judged the same way.
+ * Source documents for the promise check: the last four earnings calls (Screener's links merged
+ * with the exchange copies) plus the latest annual report. Companies that don't hold calls
+ * (OFSS, for one) are judged on their last two annual reports instead.
  */
 export async function transcripts(ticker: string): Promise<TranscriptRef[]> {
   const sc = await company(ticker);
-  const { value } = await cached("screener", cacheKey("transcripts-v4", ticker.toUpperCase(), today()), async () => {
+  const { value } = await cached("screener", cacheKey("transcripts-v5", ticker.toUpperCase(), today()), async () => {
     const calls = pickTranscripts(sc, 4, await bseTranscripts(sc.bse));
-    return calls.length >= 2 ? calls : [...calls, ...annualReportRefs(sc, 2 - calls.length)];
+    // The latest annual report always joins: the chairman's letter and MD&A carry the multi-year
+    // story the quarterly calls only touch. With no calls at all, the last two reports stand in.
+    return [...calls, ...annualReportRefs(sc, calls.length ? 1 : 2)];
   });
   return value;
 }

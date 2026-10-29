@@ -9,6 +9,7 @@ export interface Position {
   dayPnl: number | null; // ₹
   value: number | null; // ₹
   m1: number | null; // % over ~21 sessions
+  m3: number | null; // % over ~63 sessions (or as far back as the data goes)
   volX: number | null;
   spark: number[];
   asOf: string | null;
@@ -35,6 +36,7 @@ export function summarise(d: Digest): PortfolioSummary {
     const last = bars[n - 1];
     const prev = bars[n - 2];
     const m1Base = bars[Math.max(0, n - 22)];
+    const m3Base = bars[Math.max(0, n - 64)];
     const qty = h.qty ?? 0;
     const st = n > 21 ? barStats(bars, n - 1) : null;
     const fs = d.filings.filter((f) => f.ticker === h.ticker && new Date(f.ts).getTime() >= since7);
@@ -45,6 +47,7 @@ export function summarise(d: Digest): PortfolioSummary {
       dayPnl: last && prev ? (last.c - prev.c) * qty : null,
       value: last ? last.c * qty : null,
       m1: last && m1Base ? ((last.c - m1Base.c) / m1Base.c) * 100 : null,
+      m3: last && m3Base ? ((last.c - m3Base.c) / m3Base.c) * 100 : null,
       volX: st ? st.volX : null,
       spark: bars.slice(-30).map((b) => b.c),
       asOf: last?.d ?? null,

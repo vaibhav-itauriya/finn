@@ -54,6 +54,19 @@ export function Copilot() {
       /* defaults */
     }
   }, []);
+  // Get out of the way while reading: hide on scroll down, come back on scroll up.
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const on = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - last) < 8) return;
+      setHidden(y > last && y > 120);
+      last = y;
+    };
+    window.addEventListener("scroll", on, { passive: true });
+    return () => window.removeEventListener("scroll", on);
+  }, []);
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [msgs, busy, interim]);
@@ -198,7 +211,10 @@ export function Copilot() {
       <button
         onClick={openSheet}
         aria-label="Ask FINN by voice"
-        className="fixed right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-brand text-brand-ink shadow-[0_8px_24px_-6px_rgb(var(--brand)/0.6)] active:scale-95 bottom-[calc(76px+env(safe-area-inset-bottom))] min-[560px]:right-[calc(50%-244px)]"
+        className={clsx(
+          "fixed right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-brand text-brand-ink shadow-[0_8px_24px_-6px_rgb(var(--brand)/0.6)] transition-all duration-200 active:scale-95 bottom-[calc(76px+env(safe-area-inset-bottom))] min-[560px]:right-[calc(50%-244px)]",
+          hidden && "pointer-events-none translate-y-6 scale-75 opacity-0",
+        )}
       >
         <Icon name="mic" size={24} />
       </button>

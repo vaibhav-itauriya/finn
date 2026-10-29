@@ -83,7 +83,7 @@ export async function researchReply(ticker: string, app: string): Promise<Reply>
     const { numbers: n } = await stepNumbers(t);
     const snapLines = n.snapshot.slice(0, 4).map((x) => `${x.label}: <b>${esc(x.value)}</b>${x.sub ? ` (${esc(x.sub)})` : ""}`);
     return {
-      html: `<b>${esc(n.header.name)}</b> (${t})\n${snapLines.join("\n")}\n\nThe promise-vs-delivery check reads its last four earnings calls. That takes about a minute the first time, so open it in the app.`,
+      html: `<b>${esc(n.header.name)}</b> (${t})\n${snapLines.join("\n")}\n\nThe promise-vs-delivery check reads its last four earnings calls and latest annual report. That takes about a minute the first time, so open it in the app.`,
       buttons: button,
     };
   } catch {

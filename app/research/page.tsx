@@ -10,8 +10,8 @@ export default function ResearchHome() {
       <div className="px-4">
       <h1 className="mt-2 text-[26px] leading-tight font-extrabold tracking-tight">Did they do what they said?</h1>
       <p className="mt-2 text-[14px] text-dim leading-snug">
-        Pick any NSE company. FINN reads its last four earnings calls and checks every promise against the numbers it later reported. Only the company&apos;s own
-        documents are used.
+        Pick any NSE company. FINN reads its last four earnings calls and its latest annual report, then checks every promise against the numbers it later
+        reported. Only the company&apos;s own documents are used.
       </p>
       <div className="mt-5">
         <SearchBox />
