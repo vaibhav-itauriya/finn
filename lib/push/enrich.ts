@@ -310,8 +310,9 @@ Rules: at most 2 sentences, 35 words. Lead with their immediate previous role an
 Reply with JSON only: {"bio": "..." or null, "previously": ["<Role, Company, years if known>", ...up to 3, most recent first]}.`,
             },
           ],
-          cacheId: `bio-v4|${p.name}|${f.company}`,
-          maxOutputTokens: 700,
+          cacheId: `bio-v5|${p.name}|${f.company}`,
+          // Newer Flash models think before answering: leave room so the JSON isn't cut off.
+          maxOutputTokens: 2000,
         });
         const b = parseJSON<{ bio: string | null; previously: string[] }>(r.text);
         if (b.bio) person.bio = b.bio;

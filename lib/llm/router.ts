@@ -190,8 +190,9 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
       try {
         let r = await callGemini(model, req);
         // Never cache a reply we can't parse: retry once, then give up loudly.
-        if (req.json && !isJSON(r.text)) r = await callGemini(model, { ...req, temperature: 0 });
-        if (req.json && !isJSON(r.text)) throw Object.assign(new Error(`${model} returned unparseable JSON`), { status: 422 });
+        const wantsJSON = req.json || (req.tier === "search" && /JSON/.test(JSON.stringify(req.parts).slice(-600)));
+        if (wantsJSON && !isJSON(r.text)) r = await callGemini(model, { ...req, temperature: 0 });
+        if (wantsJSON && !isJSON(r.text)) throw Object.assign(new Error(`${model} returned unparseable JSON`), { status: 422 });
         meter.calls++;
         meter.tokensIn += r.tin;
         meter.tokensOut += r.tout;
