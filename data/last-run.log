@@ -1,11 +1,9 @@
 screener: 18/18
 prices: 18/18
-filings: 259 (233 placed by rules)
-[5s] results: 9 filings
-[6s] second opinion: 40 filings
-[6s] management: 7 filings
-gemini-2.5-flash: daily quota exhausted, falling back
-gemini-2.5-flash: daily quota exhausted, falling back
-[9s] enrichment done
-done in 9s · 259 filings · rules 233 · llm calls 2 (cache hits 60) · tokens 1538/209 · ~$0.0002 · models {"gemini-3.5-flash-lite":2}
+filings: 262 (234 placed by rules)
+[9s] results: 9 filings
+[9s] second opinion: 41 filings
+[27s] management: 7 filings
+[38s] enrichment done
+done in 38s · 262 filings · rules 234 · llm calls 4 (cache hits 59) · tokens 2391/2916 · ~$0.0073 · models {"gemini-3.5-flash-lite":2,"gemini-2.5-flash":2}
 telegram owner: sent 0
