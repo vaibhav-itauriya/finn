@@ -1,0 +1,29 @@
+name: FINN dev task
+
+# Run a diagnostic script from scripts/dev with the pipeline's secrets; output comes back as annotations.
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: "Script in scripts/dev, with arguments"
+        default: "bio.ts HDFCBANK"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          npx tsx scripts/dev/${{ github.event.inputs.script }} > out.txt 2>&1 || true
+          cat out.txt
+          split -b 3000 out.txt part_
+          for f in part_*; do echo "::notice title=$f::$(sed -e ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' $f)"; done
