@@ -145,6 +145,8 @@ async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse &
         llmLog(`${model}: daily quota exhausted, falling back`);
         throw Object.assign(new Error(`${model} daily quota exhausted`), { status: 429, daily: true });
       }
+      // Search has many models with separate buckets: moving on beats waiting out a minute.
+      if (req.tier === "search") throw Object.assign(new Error(`${model} rate limited`), { status: 429 });
       // Per-minute limit: honour the server's hint, capped, at most 3 times.
       const m = txt.match(/"retryDelay":\s*"(\d+)s"/);
       const wait = Math.min(30_000, m ? Number(m[1]) * 1000 + 500 : 4000 * (attempt + 1));
