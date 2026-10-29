@@ -6,6 +6,7 @@
 //                         filing), then background via grounded search only for senior appointees
 //   everything else    -> "second opinion": the cheap model reads the filing PDF, writes one line
 //                         of substance and nudges the rules' score within a bounded range
+import { getJSON } from "../util/http";
 import type { Category, Filing, MgmtCard, PersonBio, ResultsCard, SummaryCard, Triplet } from "../types";
 import { llm, parseJSON, pdfPart, type LLMTier, type Part } from "../llm/router";
 import { fetchPdf } from "../sources/pdf";
@@ -308,7 +309,7 @@ Rules: at most 2 sentences, 35 words. Lead with their immediate previous role an
 Reply with JSON only: {"bio": "..." or null, "previously": ["<Role, Company, years if known>", ...up to 3, most recent first]}.`,
             },
           ],
-          cacheId: `bio-v3|${p.name}|${f.company}`,
+          cacheId: `bio-v4|${p.name}|${f.company}`,
           maxOutputTokens: 700,
         });
         const b = parseJSON<{ bio: string | null; previously: string[] }>(r.text);
@@ -318,6 +319,11 @@ Reply with JSON only: {"bio": "..." or null, "previously": ["<Role, Company, yea
       } catch (e) {
         console.error("bio search failed:", (e as Error).message.slice(0, 160));
       }
+      // No web-search quota left, or nothing found: Wikipedia is free and covers most top executives.
+      if (!person.sources?.length) {
+        const w = await wikiBio(p.name, f.company).catch(() => null);
+        if (w) Object.assign(person, w);
+      }
     }
     people.push(person);
   }
@@ -325,6 +331,44 @@ Reply with JSON only: {"bio": "..." or null, "previously": ["<Role, Company, yea
   const order = { appointed: 0, redesignated: 1, resigned: 2, retired: 3, other: 4 } as const;
   people.sort((a, b) => order[a.change] - order[b.change]);
   return { card: { kind: "management", people, reason: ex.reason ?? null }, senior };
+}
+
+/**
+ * Fallback bio from Wikipedia: find the person's article (the company name must appear in it, so
+ * a namesake is never used), then let the cheap model compress it to the same two-sentence format.
+ */
+async function wikiBio(name: string, company: string): Promise<Pick<PersonBio, "bio" | "previously" | "sources"> | null> {
+  const api = "https://en.wikipedia.org/w/api.php?format=json&origin=*&action=query";
+  const q = await getJSON<{ query: { search: { title: string }[] } }>(`${api}&list=search&srlimit=3&srsearch=${encodeURIComponent(`${name} ${company.replace(/\b(Ltd|Limited)\.?$/i, "")}`)}`);
+  const surname = name.trim().split(/\s+/).at(-1)!.toLowerCase();
+  const firm = company.split(/\s+/)[0].toLowerCase();
+  for (const hit of q.query.search) {
+    if (!hit.title.toLowerCase().includes(surname)) continue;
+    const page = await getJSON<{ query: { pages: Record<string, { extract?: string; fullurl?: string }> } }>(
+      `${api}&prop=extracts|info&inprop=url&explaintext=1&exchars=3500&titles=${encodeURIComponent(hit.title)}`,
+    );
+    const pg = Object.values(page.query.pages)[0];
+    const text = pg?.extract || "";
+    if (!text.toLowerCase().includes(firm) || text.length < 200) continue;
+    const r = await llm({
+      tier: "bulk",
+      parts: [
+        {
+          text: `From this Wikipedia text only, write a professional bio of ${name}, newly ${company}'s executive. At most 2 sentences, 35 words. Lead with the immediate previous role and employer, then the major companies behind them. No praise words.
+Reply JSON: {"bio": "...", "previously": ["<Role, Company, years if known>", ...up to 3, most recent first]}
+
+${text}`,
+        },
+      ],
+      json: true,
+      cacheId: `wikibio-v1|${name}|${hit.title}`,
+      maxOutputTokens: 500,
+    });
+    const b = parseJSON<{ bio: string | null; previously?: string[] }>(r.text);
+    if (!b.bio) continue;
+    return { bio: b.bio, previously: (b.previously || []).slice(0, 3), sources: [{ title: `Wikipedia: ${hit.title}`, url: pg.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(hit.title.replace(/ /g, "_"))}` }] };
+  }
+  return null;
 }
 
 // ---------- second opinion on everything else that might matter ----------
@@ -341,7 +385,8 @@ const OPINION_SCHEMA = {
 };
 
 const OPINION_PROMPT = (f: Filing) => `You are a ruthless equity research analyst triaging stock-exchange filings for a portfolio manager who owns ${f.company} (${f.ticker}). Your job is to filter noise, not to summarise.
-Read the filing and return: category, materiality (0-100; results/large M&A/CEO exit ~85+, routine compliance <15) and "line": the single most decision-relevant fact in at most 20 words, with numbers. No filler like "the company announced"; start with the fact. If there is nothing beyond the title, line = null.
+Read the filing and return: category, materiality (0-100; results/large M&A/CEO exit ~85+, routine compliance <15) and "line": the single most decision-relevant fact in at most 20 words, with numbers.
+The attached PDF is often a board-meeting outcome that bundles several decisions (results, dividends, subsidiaries, appointments). Judge and summarise ONLY the decision this filing's subject refers to; the others are filed and scored separately. Setting up or closing a small subsidiary is not material M&A. No filler like "the company announced"; start with the fact. If there is nothing beyond the title, line = null.
 Exchange subject: ${f.title}
 Company's gist: ${f.headline.slice(0, 600)}`;
 
@@ -359,7 +404,7 @@ export async function secondOpinion(f: Filing): Promise<{ category: Category; ma
       /* fall back to text */
     }
   }
-  const r = await llm({ tier: "bulk", parts, json: true, schema: OPINION_SCHEMA, cacheId: `opinion-v1|${withPdf ? "pdf" : "txt"}|${f.id}`, maxOutputTokens: 400 });
+  const r = await llm({ tier: "bulk", parts, json: true, schema: OPINION_SCHEMA, cacheId: `opinion-v2-1|${withPdf ? "pdf" : "txt"}|${f.id}`, maxOutputTokens: 400 });
   const o = parseJSON<{ category: Category; materiality: number; line: string | null }>(r.text);
   if (!CATS.includes(o.category)) return null;
   return { ...o, materiality: Math.max(0, Math.min(100, Math.round(toNum(o.materiality) ?? 0))) };
@@ -377,7 +422,9 @@ export function fuse(f: Filing, o: { category: Category; materiality: number; li
     f.score = s;
   }
   f.tier = tierOf(f.score);
-  if (o.line) f.enrichment = summaryCard(o.line);
+  // A line about the quarter's results on a filing that isn't about results is the model reading the
+  // wrong part of a bundled PDF: drop it rather than mislead.
+  if (o.line && !(f.category !== "results" && /financial results|un-?audited|quarter (and half year )?ended/i.test(o.line))) f.enrichment = summaryCard(o.line);
 }
 
 export function summaryCard(line: string): SummaryCard {

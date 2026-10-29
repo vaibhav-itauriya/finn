@@ -23,7 +23,7 @@ export function TelegramBanner({ compact }: { compact?: boolean }) {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-bold">Alerts go to {tg.conn.name}&apos;s Telegram</p>
-          <p className="text-[11.5px] text-dim">{sent ?? (tg.cfg?.scheduled ? "New items arrive after every run, at your thresholds" : "Tap Send on any card to get it on your phone")}</p>
+          <p className="text-[11.5px] text-dim">{sent ?? (tg.cfg?.scheduled ? "Alerts arrive at your thresholds. Ask the bot anything, by text or voice." : "Tap Send on any card to get it on your phone")}</p>
         </div>
         <button
           onClick={async () => {
@@ -51,7 +51,7 @@ export function TelegramBanner({ compact }: { compact?: boolean }) {
         <div className="min-w-0">
           <p className="text-[14px] font-bold">Get these alerts on your phone</p>
           <p className="mt-0.5 text-[12px] leading-snug text-dim">
-            Connect your own Telegram in two taps. No sign-up: FINN opens the bot, you press Start, and results cards and unusual moves come to you.
+            Connect your own Telegram in two taps. No sign-up: FINN opens the bot, you press Start, and results cards, unusual moves and an evening wrap come to you. You can also ask the bot questions or send it voice notes.
           </p>
         </div>
       </div>

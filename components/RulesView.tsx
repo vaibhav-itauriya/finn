@@ -9,6 +9,7 @@ import { CATEGORY_LABEL } from "@/lib/push/classify";
 import { AppHeader } from "./AppHeader";
 import { Icon } from "./Icon";
 import { TelegramBanner } from "./telegram/TelegramBanner";
+import { PhonePushCard } from "./notify/PhonePushCard";
 
 const PUSHABLE: Category[] = ["results", "mna", "management_change", "fund_raise", "pledging", "litigation", "credit_rating", "insider_trading", "capex", "bonus_split", "dividend", "press_release"];
 
@@ -69,7 +70,24 @@ export function RulesView({ prices }: { prices: PriceSeries[] }) {
         </div>
       </section>
 
+      <section className="card mx-4 mt-3 flex items-center justify-between gap-3 p-4">
+        <div>
+          <h2 className="text-[14px] font-bold">Evening wrap</h2>
+          <p className="mt-0.5 text-[12px] leading-snug text-dim">One message after market close: what mattered today across your holdings.</p>
+        </div>
+        <button
+          role="switch"
+          aria-checked={rules.dailyDigest !== false}
+          aria-label="Evening wrap"
+          onClick={() => setRules((r) => ({ ...r, dailyDigest: r.dailyDigest === false }))}
+          className={clsx("relative h-7 w-12 shrink-0 rounded-full transition-colors", rules.dailyDigest !== false ? "bg-brand" : "bg-rule")}
+        >
+          <span className={clsx("absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all", rules.dailyDigest !== false ? "left-6" : "left-1")} />
+        </button>
+      </section>
+
       <h2 className="mx-4 mt-6 text-[13px] font-bold text-dim">Push to your phone</h2>
+      <PhonePushCard compact />
       <TelegramBanner compact />
       {tg.conn && (
         <div className="mx-4 mt-2 flex items-center justify-between text-[12px]">

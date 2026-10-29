@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { TabBar } from "@/components/TabBar";
+import { Copilot } from "@/components/copilot/Copilot";
+import { SWRegister } from "@/components/SWRegister";
 
 export const metadata: Metadata = {
   title: "FINN",
@@ -32,6 +34,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans min-h-dvh">
         <div className="mx-auto max-w-[520px] min-h-dvh pb-[calc(80px+env(safe-area-inset-bottom))]">{children}</div>
         <TabBar />
+        <Copilot />
+        <SWRegister />
       </body>
     </html>
   );

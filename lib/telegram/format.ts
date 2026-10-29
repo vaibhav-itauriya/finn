@@ -3,6 +3,7 @@
 import type { Category, Filing, Triplet } from "../types";
 import type { MoveAlert } from "../client/alerts";
 import { CATEGORY_LABEL } from "../push/classify";
+import type { FeedItem } from "../feed";
 
 export const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
 
@@ -54,15 +55,5 @@ export function digestMessage(title: string, lines: string[], appUrl: string): s
   return `<b>${esc(title)}</b>\n${lines.map((l) => `• ${l}`).join("\n")}\n<a href="${appUrl}/digest?w=24h">Open the digest</a>`;
 }
 
-/** What the pipeline hands to /api/telegram/broadcast; each tester's thresholds are applied there. */
-export interface PushItem {
-  id: string;
-  kind: "filing" | "move";
-  ticker: string;
-  category?: Category;
-  tier?: string;
-  score?: number;
-  change?: number;
-  volX?: number;
-  html: string;
-}
+/** What the pipeline hands to /api/telegram/broadcast: a feed item plus its Telegram rendering. */
+export type PushItem = FeedItem & { html: string };

@@ -8,6 +8,7 @@ export interface Rules {
   moveAbs: number; // |daily % change|
   pushCategories: Category[]; // always surface these filing types at the top
   muted: string[]; // "TICKER:category" pairs the user swiped away
+  dailyDigest?: boolean; // evening wrap after market close (Telegram and phone)
 }
 
 export const DEFAULT_RULES: Rules = {
@@ -15,6 +16,7 @@ export const DEFAULT_RULES: Rules = {
   moveAbs: 4,
   pushCategories: ["results", "mna", "management_change", "fund_raise", "pledging", "litigation", "credit_rating"],
   muted: [],
+  dailyDigest: true,
 };
 
 export interface MoveAlert {

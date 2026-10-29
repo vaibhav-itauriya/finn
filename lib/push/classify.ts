@@ -79,6 +79,8 @@ const RULES: Rule[] = [
 
   // ---- deals, disputes, ratings, capex
   { re: /(takeover offer|open offer|disposal of (stake|shares)|sale of (stake|business|undertaking)|slump sale)/i, category: "mna", score: 76, reason: "Stake sale / takeover: changes what you own" },
+  { re: /(strike[- ]?off|striking off|struck off|voluntary liquidation|voluntarily wound|winding[- ]up)[^.]{0,120}subsidiar|subsidiar[^.]{0,80}(strike[- ]?off|struck off|voluntary liquidation)/i, category: "unclassified", score: 12, reason: "Closing a dormant subsidiary: housekeeping" },
+  { re: /incorporat\w* (of )?(a |an )?(new )?(wholly[- ]owned |step[- ]down )*subsidiar/i, category: "mna", score: 32, reason: "New subsidiary set up: a small strategic signal, not a deal" },
   { re: /(demerger|amalgamation|scheme of arrangement|merger)/i, category: "mna", score: 85, reason: "Restructuring changes what you own" },
   { re: /(acquisition|acquire|joint venture|\bjv\b|stake sale|divest|disinvest|incorporation of (a )?(wholly owned )?subsidiar|investment in (wholly owned )?subsidiar|updates on acquisition)/i, category: "mna", score: 72, reason: "Acquisition / JV / stake change", adjust: (t) => (/incorporation of|investment in (wholly owned )?subsidiar/i.test(t) ? { score: 38, reason: "Capital put into a subsidiary" } : null) },
   { re: /(litigation|dispute|regulatory action|penalty|show cause|demand order|tax demand|gst|income tax|\bnclt\b|insolvency|sebi order|court|tribunal|arbitration|fine imposed|search and seizure|raid)/i, category: "litigation", score: 62, reason: "Legal or regulatory action", adjust: (t) => (/(insolvency|nclt|search and seizure|raid|sebi order)/i.test(t) ? { score: 82, reason: "Serious regulatory/insolvency matter" } : null) },

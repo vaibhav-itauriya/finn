@@ -14,6 +14,7 @@ import { Sparkline } from "../Sparkline";
 import { AppHeader } from "../AppHeader";
 import { SendToTelegram } from "../telegram/TelegramBanner";
 import { Brief } from "./Brief";
+import { Icon } from "../Icon";
 
 type WindowKey = "since" | "24h" | "3d" | "7d" | "30d";
 const WINDOWS: { k: WindowKey; label: string; hours?: number }[] = [
@@ -30,14 +31,26 @@ export function Today({ digest }: { digest: Digest }) {
   const lastVisit = useLastVisit();
   const [win, setWin] = useState<WindowKey>("since");
   const [autoBrief, setAutoBrief] = useState(false);
-  // Action keys deep-link here with ?w=24h; the page itself stays static.
+  // Deep links: ?w=24h from action keys, ?f=<filing> from a notification, ?t=TICKER from Portfolio.
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [only, setOnly] = useState<string | null>(null);
   useEffect(() => {
-    const w = new URLSearchParams(window.location.search).get("w");
+    const q = new URLSearchParams(window.location.search);
+    const w = q.get("w");
     if (w && WINDOWS.some((x) => x.k === w)) {
       setWin(w as WindowKey);
       setAutoBrief(w === "24h");
     }
+    if (q.get("t")) {
+      setOnly(q.get("t")!.toUpperCase());
+      if (!w) setWin("30d");
+    }
+    if (q.get("f")) {
+      setFocusId(q.get("f"));
+      window.scrollTo({ top: 0 });
+    }
   }, []);
+  const focusBundle = useMemo(() => (focusId ? bundle(digest.filings).find((b) => b.lead.id === focusId || b.related.some((r) => r.id === focusId)) ?? null : null), [focusId, digest.filings]);
   const [showFolded, setShowFolded] = useState(false);
   const [toast, setToast] = useState<{ text: string; undo: () => void } | null>(null);
   const [showCleared, setShowCleared] = useState(false);
@@ -54,7 +67,7 @@ export function Today({ digest }: { digest: Digest }) {
   const clearedSet = useMemo(() => new Set(cleared.ids), [cleared]);
   const mutedSet = useMemo(() => new Set(rules.muted), [rules.muted]);
 
-  const inWindow = digest.filings.filter((f) => new Date(f.ts) >= since);
+  const inWindow = digest.filings.filter((f) => new Date(f.ts) >= since && (!only || f.ticker === only) && f.id !== focusBundle?.lead.id);
   const visible = inWindow.filter((f) => !mutedSet.has(`${f.ticker}:${f.category}`));
   const bundles = bundle(visible);
   const isLead = (b: Bundle) => b.lead.tier === "material" || (rules.pushCategories.includes(b.lead.category) && b.lead.score >= 45);
@@ -67,7 +80,7 @@ export function Today({ digest }: { digest: Digest }) {
   const mutedCount = inWindow.length - visible.length;
 
   const sinceDay = new Date(since.getTime() + 5.5 * 3600e3).toISOString().slice(0, 10);
-  const moves = useMemo(() => (rulesReady ? moveAlerts(digest.prices, rules, sinceDay) : []), [digest.prices, rules, sinceDay, rulesReady]);
+  const moves = useMemo(() => (rulesReady ? moveAlerts(digest.prices, rules, sinceDay).filter((m) => !only || m.ticker === only) : []), [digest.prices, rules, sinceDay, rulesReady, only]);
   const openMoves = moves.filter((m) => !clearedSet.has(`mv:${m.ticker}:${m.d}`));
 
   const needs = lead.length + openMoves.length;
@@ -121,7 +134,32 @@ export function Today({ digest }: { digest: Digest }) {
         </div>
       </header>
 
-      <Brief hours={WINDOWS.find((w) => w.k === win)?.hours ?? Math.max(24, Math.round((generated - since.getTime()) / 3600e3))} auto={autoBrief} />
+      {only && (
+        <div className="mx-4 mt-3 flex items-center justify-between rounded-xl bg-brand-soft px-3.5 py-2 text-[13px] text-brand">
+          <span>
+            Showing <b>{only}</b> only
+          </span>
+          <button onClick={() => setOnly(null)} className="flex items-center gap-1 font-bold" aria-label="Show all holdings">
+            <Icon name="x" size={14} /> All holdings
+          </button>
+        </div>
+      )}
+
+      {focusBundle && (
+        <section className="mt-4" aria-label="The item you opened">
+          <h2 className="mx-4 flex items-center justify-between text-[12px] font-bold uppercase tracking-wide text-brand">
+            From your alert
+            <button onClick={() => setFocusId(null)} className="text-[12px] font-semibold normal-case tracking-normal text-dim">
+              Dismiss
+            </button>
+          </h2>
+          <ul className="mx-4 mt-2 rounded-[16px] ring-2 ring-brand/60">
+            <FilingItem f={focusBundle.lead} related={focusBundle.related} variant="lead" defaultOpen onDone={(x) => { clear(x.id, x.ticker); setFocusId(null); }} onMute={mute} />
+          </ul>
+        </section>
+      )}
+
+      {!only && <Brief hours={WINDOWS.find((w) => w.k === win)?.hours ?? Math.max(24, Math.round((generated - since.getTime()) / 3600e3))} auto={autoBrief} />}
 
       {/* What needs you: material filings + threshold breaches */}
       <section className="mt-5" aria-labelledby="needs">

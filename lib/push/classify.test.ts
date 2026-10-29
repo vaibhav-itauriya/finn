@@ -61,3 +61,14 @@ test("a results day collapses into one item led by the enriched filing", () => {
   assert.equal(b[0].lead.id, "a");
   assert.equal(b[0].related.length, 2);
 });
+
+test("subsidiary housekeeping is not material M&A", () => {
+  const strike = c("Company Update", "Scheme of Arrangement", "Scheme of Arrangement", "The Board approved the Strike-off of Somit Solutions Limited, wholly owned step-down subsidiary of the Company.");
+  assert.equal(strike?.category, "unclassified");
+  assert.equal(tierOf(strike!.score), "routine");
+  const newSub = c("Company Update", "Acquisition", "Acquisition", "The Board approved the proposal to incorporate a wholly owned subsidiary in Vietnam.");
+  assert.equal(tierOf(newSub!.score), "routine");
+  const deal = c("Company Update", "Acquisition", "Acquisition of 51% stake in XYZ", "to acquire 51% stake for Rs 500 crore");
+  assert.equal(deal?.category, "mna");
+  assert.equal(tierOf(deal!.score), "material");
+});

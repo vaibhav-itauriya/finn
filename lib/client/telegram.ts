@@ -131,6 +131,7 @@ export function useTelegram() {
 
 /** Keep a connected tester's scheduled-push thresholds in sync with the Alerts screen. */
 export function syncRules(rules: Rules) {
+  import("./push").then((m) => m.syncPushRules(rules));
   const c = read();
   if (!c) return;
   fetch("/api/telegram/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatId: c.chatId, name: c.name, rules }) }).catch(() => {});

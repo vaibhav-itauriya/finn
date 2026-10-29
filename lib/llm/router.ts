@@ -37,7 +37,8 @@ function buildChains(): Record<LLMTier, string[]> {
   return {
     bulk: uniq([...bulk, ...open, ...reason]),
     reason: uniq([...reason, ...bulk, ...open]),
-    search: uniq([process.env.FINN_MODEL_SEARCH, ...reason]),
+    // Grounded search works on Flash-Lite too, and its free quota is the one that is usually left.
+    search: uniq([process.env.FINN_MODEL_SEARCH, ...reason, ...bulk]),
   };
 }
 let chains: Record<LLMTier, string[]> | null = null;

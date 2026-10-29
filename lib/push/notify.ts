@@ -1,30 +1,46 @@
 // Real push: after each pipeline run, send what newly crossed the line.
 //  1. The owner's chat (TELEGRAM_CHAT_ID secret): items at default thresholds, deduped via data/sent.json.
-//  2. Every tester who connected Telegram in the app: the pipeline hands all candidate items to the
-//     app's /api/telegram/broadcast, which applies each tester's own thresholds and mutes.
+//  2. Everyone who connected in the app (Telegram or phone notifications): the pipeline hands all
+//     candidate items to the app's /api/telegram/broadcast, which applies each person's own
+//     thresholds and mutes and never sends the same item twice.
+// After market close it also adds the evening wrap, once a day.
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Digest } from "../types";
 import { DEFAULT_RULES, moveAlerts } from "../client/alerts";
-import { bundle } from "../client/bundle";
-import { filingMessage, moveMessage, type PushItem } from "../telegram/format";
+import { candidates, dailyWrap, wants, type FeedItem } from "../feed";
+import { digestMessage, filingMessage, moveMessage, type PushItem } from "../telegram/format";
 import { pushSecret } from "../telegram/secret";
+import { esc } from "../telegram/format";
 
 const SENT = path.join(process.cwd(), "data", "sent.json");
 
-function candidates(d: Digest, appUrl: string): PushItem[] {
+function items(d: Digest, appUrl: string): PushItem[] {
   const since = Date.now() - 36 * 3600e3; // never push stale news
   const out: PushItem[] = [];
-  for (const b of bundle(d.filings)) {
-    const f = b.lead;
-    if (new Date(f.ts).getTime() < since || f.tier === "routine") continue;
-    const id = `f:${[f.id, ...b.related.map((r) => r.id)].sort()[0]}`;
-    out.push({ id, kind: "filing", ticker: f.ticker, category: f.category, tier: f.tier, score: f.score, html: filingMessage(f, appUrl) });
+  const byId = new Map(d.filings.map((f) => [f.id, f]));
+  for (const it of candidates(d, 3)) {
+    if (new Date(it.ts).getTime() < since && it.kind === "filing") continue;
+    if (it.kind === "filing") {
+      const lead = it.ref ? byId.get(it.ref) : undefined;
+      if (!lead) continue;
+      out.push({ ...it, html: filingMessage(lead, appUrl) });
+    } else {
+      const m = moveAlerts(d.prices, { ...DEFAULT_RULES, moveAbs: 0, volMultiple: 0 }, it.ts.slice(0, 10)).find((x) => `m:${x.ticker}:${x.d}` === it.id);
+      if (!m) continue;
+      const kinds: ("price" | "volume")[] = [];
+      if (Math.abs(m.change) >= 2) kinds.push("price");
+      if (m.volX >= 1.5) kinds.push("volume");
+      out.push({ ...it, html: moveMessage({ ...m, kinds }, appUrl) });
+    }
   }
-  // Loose thresholds here; each recipient's own thresholds are applied downstream.
-  const day = new Date(Date.now() - 2 * 86400e3).toISOString().slice(0, 10);
-  for (const m of moveAlerts(d.prices, { ...DEFAULT_RULES, moveAbs: 2, volMultiple: 1.5 }, day)) {
-    out.push({ id: `m:${m.ticker}:${m.d}`, kind: "move", ticker: m.ticker, change: m.change, volX: m.volX, html: moveMessage(m, appUrl) });
+  // Evening wrap: the first run after 15:45 IST each day.
+  const ist = new Date(Date.now() + 5.5 * 3600e3);
+  const mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  if (mins >= 15 * 60 + 45 && ist.getUTCDay() >= 1 && ist.getUTCDay() <= 5) {
+    const w = dailyWrap(d);
+    const wrap: FeedItem = { id: `d:${ist.toISOString().slice(0, 10)}`, kind: "digest", ticker: "", ts: new Date().toISOString(), title: w.title, body: w.lines.slice(0, 3).join(" · "), path: "/digest?w=24h" };
+    out.push({ ...wrap, html: digestMessage(w.title, w.lines.map(esc), appUrl) });
   }
   return out;
 }
@@ -33,7 +49,7 @@ export async function notify(d: Digest, log: (s: string) => void) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chat = process.env.TELEGRAM_CHAT_ID;
   const appUrl = (process.env.FINN_APP_URL || "").replace(/\/$/, "");
-  const items = candidates(d, appUrl);
+  const all = items(d, appUrl);
 
   // 1. owner
   if (token && chat) {
@@ -44,13 +60,7 @@ export async function notify(d: Digest, log: (s: string) => void) {
       /* first run */
     }
     const seen = new Set(sent);
-    const mine = items.filter(
-      (it) =>
-        !seen.has(it.id) &&
-        (it.kind === "move"
-          ? Math.abs(it.change ?? 0) >= DEFAULT_RULES.moveAbs || (it.volX ?? 0) >= DEFAULT_RULES.volMultiple
-          : it.tier === "material" || (it.category && DEFAULT_RULES.pushCategories.includes(it.category) && (it.score ?? 0) >= 45)),
-    );
+    const mine = all.filter((it) => !seen.has(it.id) && wants(it, DEFAULT_RULES));
     for (const m of mine.slice(0, 12)) {
       const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
@@ -63,18 +73,18 @@ export async function notify(d: Digest, log: (s: string) => void) {
     log(`telegram owner: sent ${Math.min(12, mine.length)}`);
   }
 
-  // 2. testers
+  // 2. testers (Telegram and phone notifications)
   const secret = pushSecret();
-  if (appUrl && secret && items.length) {
+  if (appUrl && secret && all.length) {
     try {
       const r = await fetch(`${appUrl}/api/telegram/broadcast`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-finn-secret": secret },
-        body: JSON.stringify({ items, skip: chat ? [chat] : [] }),
+        body: JSON.stringify({ items: all, skip: chat ? [chat] : [] }),
       });
-      log(`telegram testers: ${r.status} ${(await r.text()).slice(0, 160)}`);
+      log(`push testers: ${r.status} ${(await r.text()).slice(0, 160)}`);
     } catch (e) {
-      log(`telegram testers failed: ${(e as Error).message}`);
+      log(`push testers failed: ${(e as Error).message}`);
     }
   }
 }

@@ -2,6 +2,19 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "./Icon";
+import { useInbox } from "@/lib/client/inbox";
+
+function Bell() {
+  const { unread } = useInbox();
+  return (
+    <Link href="/inbox" className="relative grid h-9 w-9 place-items-center rounded-full bg-raise text-ink" aria-label={unread ? `Inbox, ${unread} new` : "Inbox"}>
+      <Icon name="bell" size={18} />
+      {unread > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-down px-1 text-[10px] font-extrabold text-white num">{unread > 9 ? "9+" : unread}</span>
+      )}
+    </Link>
+  );
+}
 
 function ThemeToggle() {
   const [dark, setDark] = useState<boolean | null>(null);
@@ -46,6 +59,7 @@ export function AppHeader({ right }: { right?: React.ReactNode }) {
       <Logo />
       <div className="flex items-center gap-2">
         {right}
+        <Bell />
         <ThemeToggle />
       </div>
     </header>

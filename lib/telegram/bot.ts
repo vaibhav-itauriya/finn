@@ -1,4 +1,5 @@
 // Minimal Telegram Bot API client (server only).
+import { createHash } from "node:crypto";
 const token = () => process.env.TELEGRAM_BOT_TOKEN || "";
 
 export const botEnabled = () => Boolean(token());
@@ -24,8 +25,53 @@ export async function botUsername(): Promise<string | null> {
   return username;
 }
 
-export async function send(chatId: string | number, html: string) {
-  return tg("sendMessage", { chat_id: chatId, text: html, parse_mode: "HTML", disable_web_page_preview: true });
+export type Button = { text: string; url: string };
+
+export async function send(chatId: string | number, html: string, buttons?: Button[][]) {
+  return tg("sendMessage", {
+    chat_id: chatId,
+    text: html,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    ...(buttons?.length ? { reply_markup: { inline_keyboard: buttons } } : {}),
+  });
+}
+
+/** Secret Telegram echoes back on every webhook call, so nobody else can post updates to us. */
+export const webhookSecret = () => createHash("sha256").update(`finn-webhook|${token()}`).digest("hex").slice(0, 48);
+
+export const COMMANDS = [
+  { command: "digest", description: "What needs me in the last 24 hours" },
+  { command: "portfolio", description: "Value, today's P&L and the movers" },
+  { command: "moves", description: "Unusual price and volume moves this week" },
+  { command: "research", description: "Promises vs delivery for a company, e.g. /research TITAN" },
+  { command: "wrap", description: "The evening wrap" },
+  { command: "settings", description: "Change thresholds or stop alerts" },
+  { command: "stop", description: "Stop automatic alerts" },
+];
+
+/**
+ * Point the bot at this deployment (production only), once. Webhook mode lets FINN answer
+ * questions and voice notes; pairing then goes through the shared store instead of getUpdates.
+ */
+export async function ensureWebhook(origin: string): Promise<boolean> {
+  const { kv, kvEnabled } = await import("../kv");
+  if (!botEnabled() || !kvEnabled()) return false;
+  const url = `${origin}/api/telegram/webhook`;
+  if ((await kv<string>("GET", "finn:webhook")) === url) return true;
+  const info = await tg<{ url: string }>("getWebhookInfo");
+  if (info.url !== url) {
+    await tg("setWebhook", { url, secret_token: webhookSecret(), allowed_updates: ["message"], max_connections: 20 });
+  }
+  await tg("setMyCommands", { commands: COMMANDS }).catch(() => {});
+  await kv("SET", "finn:webhook", url, "EX", 86400);
+  return true;
+}
+
+export async function fileBase64(fileId: string): Promise<string> {
+  const f = await tg<{ file_path: string }>("getFile", { file_id: fileId });
+  const r = await fetch(`https://api.telegram.org/file/bot${token()}/${f.file_path}`);
+  return Buffer.from(await r.arrayBuffer()).toString("base64");
 }
 
 interface Update {
