@@ -18,13 +18,16 @@ import { filingLine } from "@/lib/feed";
 import { Brief } from "./Brief";
 import { Icon } from "../Icon";
 
-type WindowKey = "24h" | "3d" | "7d" | "30d";
+type WindowKey = "24h" | "3d" | "7d" | "30d" | "custom";
 const WINDOWS: { k: WindowKey; label: string; hours: number }[] = [
   { k: "24h", label: "24 hours", hours: 24 },
   { k: "3d", label: "3 days", hours: 72 },
   { k: "7d", label: "7 days", hours: 168 },
   { k: "30d", label: "30 days", hours: 720 },
+  { k: "custom", label: "Custom dates", hours: 720 },
 ];
+const istDate = (t: number) => new Date(t + 5.5 * 3600e3).toISOString().slice(0, 10);
+const nice = (d: string) => new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
 export function Today({ digest }: { digest: Digest }) {
   const [rules, setRules, rulesReady] = useRules();
@@ -58,13 +61,24 @@ export function Today({ digest }: { digest: Digest }) {
   const [showCleared, setShowCleared] = useState(false);
 
   const generated = new Date(digest.engine.generatedAt).getTime();
-  const since = useMemo(() => new Date(generated - WINDOWS.find((x) => x.k === win)!.hours * 3600e3), [win, generated]);
+  // Custom dates are whole IST days; the data covers the last 30 days.
+  const today = istDate(generated);
+  const earliest = istDate(generated - 30 * 86400e3);
+  const [range, setRange] = useState({ from: istDate(generated - 6 * 86400e3), to: today });
+  const custom = win === "custom";
+  const since = useMemo(
+    () => (custom ? new Date(`${range.from}T00:00:00+05:30`) : new Date(generated - WINDOWS.find((x) => x.k === win)!.hours * 3600e3)),
+    [win, generated, custom, range.from],
+  );
+  const until = custom ? new Date(`${range.to}T23:59:59+05:30`).getTime() : Infinity;
+  const windowLabel = custom ? (range.from === range.to ? nice(range.from) : `${nice(range.from)} to ${nice(range.to)}`) : `the last ${WINDOWS.find((w) => w.k === win)!.label}`;
+  const tickers = useMemo(() => [...digest.portfolio].sort((a, b) => a.ticker.localeCompare(b.ticker)), [digest.portfolio]);
   const isFresh = (ts: string) => Boolean(lastVisit) && ts > lastVisit!;
 
   const clearedSet = useMemo(() => new Set(cleared.ids), [cleared]);
   const mutedSet = useMemo(() => new Set(rules.muted), [rules.muted]);
 
-  const inWindow = digest.filings.filter((f) => new Date(f.ts) >= since && (!only || f.ticker === only) && f.id !== focusBundle?.lead.id);
+  const inWindow = digest.filings.filter((f) => new Date(f.ts) >= since && new Date(f.ts).getTime() <= until && (!only || f.ticker === only) && f.id !== focusBundle?.lead.id);
   const visible = inWindow.filter((f) => !mutedSet.has(`${f.ticker}:${f.category}`));
   const bundles = bundle(visible);
   const isLead = (b: Bundle) => b.lead.tier === "material" || (rules.pushCategories.includes(b.lead.category) && b.lead.score >= 45);
@@ -77,13 +91,13 @@ export function Today({ digest }: { digest: Digest }) {
   const mutedCount = inWindow.length - visible.length;
 
   const sinceDay = new Date(since.getTime() + 5.5 * 3600e3).toISOString().slice(0, 10);
-  const moves = useMemo(() => (rulesReady ? moveAlerts(digest.prices, rules, sinceDay).filter((m) => !only || m.ticker === only) : []), [digest.prices, rules, sinceDay, rulesReady, only]);
+  const moves = useMemo(() => (rulesReady ? moveAlerts(digest.prices, rules, sinceDay).filter((m) => (!only || m.ticker === only) && (!custom || m.d <= range.to)) : []), [digest.prices, rules, sinceDay, rulesReady, only, custom, range.to]);
   const openMoves = moves.filter((m) => !clearedSet.has(`mv:${m.ticker}:${m.d}`));
 
   const needs = lead.length + openMoves.length;
   const freshCount = [...lead, ...glance].filter((b) => isFresh(b.lead.ts)).length;
   useScreenContext(
-    `Digest for the last ${WINDOWS.find((w) => w.k === win)!.label}${only ? `, ${only} only` : ""}: ${needs} things need the user.\n${lead
+    `Digest for ${windowLabel}${only ? `, ${only} only` : ""}: ${needs} things need the user.\n${lead
       .slice(0, 12)
       .map((b) => `- ${b.lead.ticker} ${CATEGORY_LABEL[b.lead.category]}: ${filingLine(b.lead)}`)
       .join("\n")}\n${openMoves.map((m) => `- ${m.ticker} unusual move ${m.d}: ${m.change.toFixed(1)}% on ${m.volX.toFixed(1)}x volume`).join("\n")}`,
@@ -120,7 +134,7 @@ export function Today({ digest }: { digest: Digest }) {
           {needs === 0 ? "You're caught up." : <>{needs} {needs === 1 ? "thing needs" : "things need"} you</>}
         </h1>
         <p className="mt-1 text-[13px] leading-snug text-dim">
-          {inWindow.length} filings and {digest.prices.length} price charts read in the last {WINDOWS.find((w) => w.k === win)!.label}.{" "}
+          {inWindow.length} filings and {digest.prices.length} price charts read {custom ? "for" : "in"} {windowLabel}.{" "}
           {folded.length > 0 && <>{folded.length} routine ones folded away.</>}
           {freshCount > 0 && lastVisit && (
             <span className="mt-1 block font-semibold text-flag">
@@ -141,18 +155,55 @@ export function Today({ digest }: { digest: Digest }) {
             </button>
           ))}
         </div>
+        {custom && (
+          <div className="card mt-3 grid grid-cols-2 gap-3 p-3">
+            <label className="text-[12px] font-semibold text-dim">
+              From
+              <input
+                type="date"
+                value={range.from}
+                min={earliest}
+                max={range.to}
+                onChange={(e) => e.target.value && setRange((r) => ({ ...r, from: e.target.value }))}
+                className="mt-1 block w-full rounded-lg border border-rule bg-sheet px-2.5 py-2 text-[14px] font-semibold text-ink"
+              />
+            </label>
+            <label className="text-[12px] font-semibold text-dim">
+              To
+              <input
+                type="date"
+                value={range.to}
+                min={range.from}
+                max={today}
+                onChange={(e) => e.target.value && setRange((r) => ({ ...r, to: e.target.value }))}
+                className="mt-1 block w-full rounded-lg border border-rule bg-sheet px-2.5 py-2 text-[14px] font-semibold text-ink"
+              />
+            </label>
+            <p className="col-span-2 -mt-1 text-[11px] text-dim">FINN keeps the last 30 days of filings, from {nice(earliest)}.</p>
+          </div>
+        )}
+        <label className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-dim">
+          Stock
+          <select
+            value={only ?? ""}
+            onChange={(e) => setOnly(e.target.value || null)}
+            className={clsx("min-w-0 flex-1 rounded-xl border px-3 py-2 text-[14px] font-semibold", only ? "border-brand bg-brand-soft text-brand" : "border-rule bg-sheet text-ink")}
+            aria-label="Show filings for one stock"
+          >
+            <option value="">All {digest.portfolio.length} holdings</option>
+            {tickers.map((h) => (
+              <option key={h.ticker} value={h.ticker}>
+                {h.ticker} · {h.name}
+              </option>
+            ))}
+          </select>
+          {only && (
+            <button onClick={() => setOnly(null)} className="grid h-9 w-9 place-items-center rounded-full bg-raise text-ink" aria-label="Show all holdings">
+              <Icon name="x" size={15} />
+            </button>
+          )}
+        </label>
       </header>
-
-      {only && (
-        <div className="mx-4 mt-3 flex items-center justify-between rounded-xl bg-brand-soft px-3.5 py-2 text-[13px] text-brand">
-          <span>
-            Showing <b>{only}</b> only
-          </span>
-          <button onClick={() => setOnly(null)} className="flex items-center gap-1 font-bold" aria-label="Show all holdings">
-            <Icon name="x" size={14} /> All holdings
-          </button>
-        </div>
-      )}
 
       {focusBundle && (
         <section className="mt-4" aria-label="The item you opened">
@@ -168,7 +219,8 @@ export function Today({ digest }: { digest: Digest }) {
         </section>
       )}
 
-      {!only && <Brief hours={WINDOWS.find((w) => w.k === win)!.hours} auto={autoBrief} />}
+      {/* The brief looks back from now, so it shows for the preset windows across all holdings. */}
+      {!only && !custom && <Brief hours={WINDOWS.find((w) => w.k === win)!.hours} auto={autoBrief} />}
 
       {/* What needs you: material filings + threshold breaches */}
       <section className="mt-5" aria-labelledby="needs">

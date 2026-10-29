@@ -152,7 +152,7 @@ function Intro() {
   const rows: { icon: IconName; title: string; text: string }[] = [
     { icon: "bell", title: "It reaches out", text: "Every filing across your 18 holdings is read and ranked. What crosses your thresholds lands in the Inbox, on your phone and on Telegram." },
     { icon: "lens", title: "You dig in", text: "Research checks what management promised on earnings calls against what they delivered, for any NSE company." },
-    { icon: "mic", title: "Just ask", text: "Tap the mic and ask in English or Hindi. FINN answers aloud from its own data." },
+    { icon: "mic", title: "Just ask", text: "Tap Ask and speak your question. FINN answers aloud from its own data." },
   ];
   return (
     <section className="card mx-4 mt-2 p-4">
@@ -197,7 +197,7 @@ function AskCard() {
   return (
     <section className="mx-4 mt-4 rounded-[14px] bg-hero p-4 text-hero-ink">
       <p className="text-[15px] font-extrabold">Ask FINN</p>
-      <p className="mt-0.5 text-[12.5px] leading-snug opacity-85">Talk to your portfolio. English or Hindi, answers read aloud.</p>
+      <p className="mt-0.5 text-[12.5px] leading-snug opacity-85">Talk to your portfolio. Answers are read aloud.</p>
       <div className="mt-3 flex gap-2">
         <button onClick={play} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-hero-ink/15 py-2.5 text-[13.5px] font-bold">
           <Icon name={speaking ? "stop" : "play"} size={15} />

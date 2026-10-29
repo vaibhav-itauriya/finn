@@ -95,6 +95,6 @@ export const HELP = (name: string) =>
   `<b>Hi ${esc(name)}, FINN is on.</b>
 You'll get results, management changes and unusual moves for the demo portfolio here, at your thresholds, plus a short wrap after market close.
 
-Ask anything in plain words or send a voice note, in English or Hindi. For example "What needs me today?" or "Did Titan deliver on its guidance?"
+Ask anything in plain words or send a voice note. For example "What needs me today?" or "Did Titan deliver on its guidance?"
 
 /digest what needs you · /portfolio · /moves · /research TITAN · /wrap · /settings · /stop`;

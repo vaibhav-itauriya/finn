@@ -19,7 +19,7 @@ FINN does three things.
 
 **You dig in (Pull).** Type any NSE company. FINN reads its last four earnings calls and its latest annual report, and checks what management promised against what the company later reported. Every claim links to the page it came from, and every management quote is string-matched against the PDF. Companies that don't hold calls (OFSS, for one) are judged on their annual reports. The financial sections (price chart, results, trajectory, balance sheet, cash quality) are computed in code, with no model in the loop.
 
-**You can just ask.** Tap the mic on any screen and ask in English or Hindi. "What needs me today?", "Who is HDFC Bank's new CEO?", "Did Titan deliver on its guidance?". FINN answers aloud from its own data and opens the screen that shows the detail. The same copilot answers typed questions and voice notes on Telegram.
+**You can just ask.** Tap Ask at the top of any screen and speak. "What needs me today?", "Who is HDFC Bank's new CEO?", "Did Titan deliver on its guidance?". FINN answers aloud from its own data and opens the screen that shows the detail. The same copilot answers typed questions and voice notes on Telegram.
 
 ## Why it looks like this
 
@@ -29,7 +29,7 @@ The investor decides what "unusual" means. The thresholds screen shows how many 
 
 On the research side, summarising management is cheap and everyone does it. The useful question is whether management can be believed. So the first thing you see is "Kept 4 of 7 promises", and every row of the promise ledger opens to the quote and the number that settled it.
 
-Voice is there because the moment you most want this is the moment you can't read: walking into a meeting, driving, between calls. A 60-second spoken briefing and a mic that answers in Hindi too.
+Voice is there because the moment you most want this is the moment you can't read: walking into a meeting, driving, between calls. A 60-second spoken briefing, and answers that read rupees, EBITDA and the rest the way a person would say them.
 
 ## What's in the app
 
