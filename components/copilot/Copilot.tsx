@@ -6,7 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { Icon } from "../Icon";
-import { canRecord, recognizer, recordAudio, speak, stopSpeaking, useSpeaking } from "@/lib/client/speech";
+import { canRecord, hasVoice, recognizer, recordAudio, speak, stopSpeaking, useSpeaking } from "@/lib/client/speech";
 import { screenContext } from "@/lib/client/screen";
 
 interface Msg {
@@ -43,6 +43,13 @@ export function Copilot() {
   const [lang, setLang] = useState<"en-IN" | "hi-IN">("en-IN");
   const speaking = useSpeaking();
   const busyRef = useRef(false);
+  const [hindiVoice, setHindiVoice] = useState(true);
+  useEffect(() => {
+    const check = () => setHindiVoice(hasVoice("hi-IN"));
+    check();
+    const t = setTimeout(check, 1200); // voices load late on Android
+    return () => clearTimeout(t);
+  }, [open]);
   const recRef = useRef<ReturnType<typeof recognizer>>(null);
   const stopRec = useRef<{ stop?: () => void }>({});
   const listRef = useRef<HTMLDivElement>(null);
@@ -87,13 +94,13 @@ export function Copilot() {
         const r = await fetch("/api/copilot", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ q, audio, history, rules: readRules(), screen: screenContext(), page: window.location.pathname }),
+          body: JSON.stringify({ q, audio, history, rules: readRules(), screen: screenContext(), page: window.location.pathname, lang }),
           signal: ctrl.signal,
         });
         const j = await r.json().catch(() => ({ error: "FINN didn't answer in time. Try again in a moment." }));
         if (!r.ok) throw new Error(j.error || "Couldn't answer that");
         setMsgs((m) => [...(audio && j.heard ? [...m, { role: "user" as const, text: j.heard }] : m), { role: "finn", text: j.reply, path: j.path, label: j.label }]);
-        if (voiceOn) speak(j.reply, j.lang);
+        if (voiceOn && (j.lang !== "hi-IN" || hasVoice("hi-IN"))) speak(j.reply, j.lang);
         // "Open/show/take me to..." means go there now.
         const asked = (q || j.heard || "").toLowerCase();
         if (j.path && /^(open|show|go to|take me|research|खोलो|दिखाओ)/.test(asked.trim())) {
@@ -110,7 +117,7 @@ export function Copilot() {
         setBusy(false);
       }
     },
-    [msgs, voiceOn, router],
+    [msgs, voiceOn, router, lang],
   );
 
   // Recognition callbacks outlive renders: always call the latest send.
@@ -220,9 +227,13 @@ export function Copilot() {
               <div className="flex items-center gap-2 px-4 pt-3">
                 <span className="mx-auto mb-1 h-1 w-10 rounded-full bg-rule absolute left-1/2 -translate-x-1/2 top-2" aria-hidden />
                 <h2 className="mt-2 text-[17px] font-extrabold tracking-tight">Ask FINN</h2>
-                <button onClick={toggleLang} className="ml-auto mt-2 rounded-full bg-raise px-2.5 py-1 text-[12px] font-bold" aria-label="Switch language">
-                  {lang === "en-IN" ? "EN" : "हिं"}
-                </button>
+                <div className="ml-auto mt-2 flex rounded-full bg-raise p-0.5 text-[12px] font-bold" role="radiogroup" aria-label="Answer language">
+                  {(["en-IN", "hi-IN"] as const).map((l) => (
+                    <button key={l} role="radio" aria-checked={lang === l} onClick={() => lang !== l && toggleLang()} className={clsx("rounded-full px-2.5 py-1", lang === l ? "bg-brand text-brand-ink" : "text-dim")}>
+                      {l === "en-IN" ? "English" : "हिंदी"}
+                    </button>
+                  ))}
+                </div>
                 <button onClick={toggleVoice} className={clsx("mt-2 grid h-8 w-8 place-items-center rounded-full", voiceOn ? "bg-brand-soft text-brand" : "bg-raise text-dim")} aria-label={voiceOn ? "Mute spoken answers" : "Speak answers aloud"} aria-pressed={voiceOn}>
                   <Icon name="speaker" size={16} />
                 </button>
@@ -232,6 +243,11 @@ export function Copilot() {
               </div>
 
               <div ref={listRef} className="min-h-[180px] flex-1 overflow-y-auto px-4 pb-2 pt-3">
+                {lang === "hi-IN" && voiceOn && !hindiVoice && (
+                  <p className="mb-2 rounded-xl bg-flag/15 px-3 py-2 text-[12px] leading-snug text-flag">
+                    This phone has no Hindi voice installed, so answers will be shown in Hindi but not read aloud. Add one in your phone&apos;s text-to-speech settings.
+                  </p>
+                )}
                 {msgs.length === 0 && listening === "off" && !busy && (
                   <>
                     <p className="text-[13px] leading-snug text-dim">Ask about your holdings, today&apos;s filings, unusual moves, or any company&apos;s promises. FINN answers from its own data and reads the answer aloud.</p>

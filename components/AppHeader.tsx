@@ -3,6 +3,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "./Icon";
 import { useInbox } from "@/lib/client/inbox";
+import { askFinn } from "./copilot/Copilot";
+
+/** Ask FINN: labelled, on every screen, never covering content. */
+function AskButton() {
+  return (
+    <button onClick={() => askFinn()} className="flex h-9 items-center gap-1.5 rounded-full bg-brand px-3.5 text-[13px] font-bold text-brand-ink active:scale-95" aria-label="Ask FINN by voice">
+      <Icon name="mic" size={16} />
+      Ask
+    </button>
+  );
+}
 
 function Bell() {
   const { unread } = useInbox();
@@ -59,6 +70,7 @@ export function AppHeader({ right }: { right?: React.ReactNode }) {
       <Logo />
       <div className="flex items-center gap-2">
         {right}
+        <AskButton />
         <Bell />
         <ThemeToggle />
       </div>

@@ -6,7 +6,7 @@ import type { Digest } from "@/lib/types";
 import { AppHeader } from "../AppHeader";
 import { Icon, type IconName } from "../Icon";
 import { Sparkline } from "../Sparkline";
-import { sectorMix, summarise } from "@/lib/client/portfolio";
+import { summarise } from "@/lib/client/portfolio";
 import { SummaryCard } from "../portfolio/SummaryCard";
 import { moveAlerts } from "@/lib/client/alerts";
 import { bundle } from "@/lib/client/bundle";
@@ -23,7 +23,6 @@ import { useState } from "react";
 export function Home({ digest }: { digest: Digest }) {
   const [rules, , ready] = useRules();
   const s = useMemo(() => summarise(digest), [digest]);
-  const sectors = useMemo(() => sectorMix(s), [s]);
   const gen = new Date(digest.engine.generatedAt).getTime();
 
   const day24 = useMemo(() => {
@@ -41,28 +40,24 @@ export function Home({ digest }: { digest: Digest }) {
 
   return (
     <main>
-      <AppHeader
-        right={
-          <span className="flex items-center gap-1.5 rounded-full bg-raise px-2.5 py-1 text-[11px] font-semibold text-dim">
-            <span className="h-1.5 w-1.5 rounded-full bg-up" aria-hidden />
-            Updated <RelTime iso={digest.engine.generatedAt} />
-          </span>
-        }
-      />
+      <AppHeader />
 
       <Intro />
 
       {/* Portfolio glance: the same card as the Portfolio tab */}
       <SummaryCard
         s={s}
-        sectors={sectors}
-        holdings={digest.portfolio.length}
         action={
-          <Link href="/portfolio" className="flex items-center gap-0.5 rounded-full bg-brand-soft px-3 py-1.5 text-[12px] font-bold text-brand">
-            Portfolio <Icon name="chev" size={14} />
+          <Link href="/portfolio" className="flex items-center gap-0.5 text-[12px] font-semibold text-brand">
+            {digest.portfolio.length} holdings <Icon name="chev" size={14} />
           </Link>
         }
       />
+
+      <p className="mx-4 mt-1.5 flex items-center gap-1.5 text-[11px] text-dim">
+        <span className="h-1.5 w-1.5 rounded-full bg-up" aria-hidden />
+        Updated <RelTime iso={digest.engine.generatedAt} /> · prices as of {s.asOf}
+      </p>
 
       {/* Holdings strip: biggest movers first */}
       <section className="mt-4" aria-label="Holdings, biggest movers first">

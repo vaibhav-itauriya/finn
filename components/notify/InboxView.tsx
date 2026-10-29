@@ -38,7 +38,12 @@ export function InboxView() {
     <main>
       <AppHeader />
       <header className="px-4 pt-2">
-        <h1 className="text-[26px] font-extrabold leading-tight tracking-tight">Inbox</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-[26px] font-extrabold leading-tight tracking-tight">Inbox</h1>
+          <Link href="/alerts" className="flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-2 text-[13px] font-bold text-brand-ink">
+            <Icon name="dial" size={15} /> Set thresholds
+          </Link>
+        </div>
         <p className="mt-1 text-[13px] leading-snug text-dim">
           Everything from the last 7 days that crossed{" "}
           <Link href="/alerts" className="font-semibold text-brand">

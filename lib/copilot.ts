@@ -95,7 +95,7 @@ function context(d: Digest, rules: Rules, notes: string[]): string {
 
 const PROMPT = (ctx: string, history: Turn[], screen?: string, page?: string) => `You are FINN, a voice-first copilot for an Indian equity investor. You are talking, not writing: your reply is read aloud.
 Use ONLY the data below. Never use outside knowledge about companies, markets or news, and never invent a number. If the data doesn't answer it, say so in one line and offer the closest thing you can do.
-Style: a sharp analyst friend. Lead with the answer and the number. At most 70 words, plain sentences, no markdown, no lists, no emojis. Say "rupees" amounts the Indian way (lakh, crore). Language: if the user writes or speaks Hindi in Devanagari, reply in Devanagari Hindi (keep company names and tickers in English) and set lang "hi-IN". If they use Hinglish in Latin letters, reply in Hinglish with lang "en-IN". Otherwise English, "en-IN".
+Style: a sharp analyst friend. Lead with the answer and the number. At most 70 words, plain sentences, no markdown, no lists, no emojis. Write money the Indian way, e.g. "₹81.9 lakh", "₹1,691 crore", round to what a person would say, and use company names rather than tickers. Language: if the user writes or speaks Hindi in Devanagari, reply in Devanagari Hindi (keep company names and tickers in English) and set lang "hi-IN". If they use Hinglish in Latin letters, reply in Hinglish with lang "en-IN". Otherwise English, "en-IN".
 Screens you can open (set "open" only when it genuinely helps, with a short "label"):
   /digest?w=24h  today's filings, triaged         /inbox  everything that crossed their thresholds
   /portfolio  holdings                            /portfolio?h=TICKER  one holding: chart, filings
@@ -108,7 +108,7 @@ ${screen ? `THE SCREEN THE USER IS LOOKING AT (${page || "app"}). Questions like
 
 ${history.length ? `Conversation so far:\n${history.map((t) => `${t.role === "user" ? "User" : "FINN"}: ${t.text}`).join("\n")}\n` : ""}`;
 
-export async function ask(input: { q?: string; audio?: { data: string; mime: string }; history?: Turn[]; rules?: Partial<Rules>; screen?: string; page?: string }): Promise<CopilotReply> {
+export async function ask(input: { q?: string; audio?: { data: string; mime: string }; history?: Turn[]; rules?: Partial<Rules>; screen?: string; page?: string; lang?: string }): Promise<CopilotReply> {
   const d = await loadDigest(70);
   if (!d) throw new Error("No portfolio data yet");
   const rules = { ...DEFAULT_RULES, ...(input.rules || {}) };
@@ -116,6 +116,9 @@ export async function ask(input: { q?: string; audio?: { data: string; mime: str
   const screen = input.screen ? String(input.screen).slice(0, 8000) : undefined;
   const page = input.page ? String(input.page).slice(0, 80) : undefined;
   const parts: Part[] = [{ text: PROMPT(context(d, rules, await researchNotes()), history, screen, page) }];
+  // The language switch in the app wins over guessing from the question.
+  if (input.lang === "hi-IN") parts.push({ text: 'The user chose Hindi: reply in simple Devanagari Hindi (company names, tickers and terms like EBITDA in English letters) and set lang "hi-IN".' });
+  else if (input.lang === "en-IN") parts.push({ text: 'The user chose English: reply in English and set lang "en-IN", even if the question is in Hindi.' });
   if (input.audio) {
     parts.push({ text: "The user's question is in this audio. Transcribe it into \"heard\", then answer it." });
     parts.push({ inline_data: { mime_type: input.audio.mime, data: input.audio.data } });
@@ -131,7 +134,7 @@ export async function ask(input: { q?: string; audio?: { data: string; mime: str
     maxOutputTokens: 600,
     fast: true,
     // Same question on the same data gives the same answer: the suggestion chips are instant.
-    cacheId: input.audio || history.length || screen ? undefined : `copilot-v1|${d.engine.generatedAt}|${JSON.stringify(rules)}|${String(input.q).toLowerCase().trim()}`,
+    cacheId: input.audio || history.length || screen ? undefined : `copilot-v2|${input.lang || ""}|${d.engine.generatedAt}|${JSON.stringify(rules)}|${String(input.q).toLowerCase().trim()}`,
   });
   const x = parseJSON<{ heard?: string | null; reply: string; lang: string; open: string | null; label?: string | null; company?: string | null }>(r.text);
   let open = x.open && x.open.startsWith("/") ? x.open : null;

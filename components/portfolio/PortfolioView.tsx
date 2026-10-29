@@ -74,7 +74,26 @@ export function PortfolioView({ digest }: { digest: Digest }) {
   return (
     <main>
       <AppHeader />
-      <SummaryCard s={s} sectors={sectors} holdings={digest.portfolio.length} />
+      <SummaryCard
+        s={s}
+        action={
+          <button onClick={() => askFinn("How did my portfolio do and why?")} className="flex items-center gap-1 text-[12px] font-semibold text-brand" aria-label="Ask FINN to explain your portfolio">
+            <Icon name="mic" size={13} /> Explain
+          </button>
+        }
+      />
+      <Link href="/alerts" className="card mx-4 mt-2.5 flex items-center gap-3 px-4 py-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-soft text-brand">
+          <Icon name="dial" size={18} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-bold">Alert thresholds</span>
+          <span className="block text-[12px] text-dim">
+            Alert me at ±{rules.moveAbs}% price or {rules.volMultiple}× volume
+          </span>
+        </span>
+        <span className="text-[13px] font-bold text-brand">Change</span>
+      </Link>
 
       {contributors.length > 0 && (
         <section className="mt-4">
@@ -140,6 +159,8 @@ export function PortfolioView({ digest }: { digest: Digest }) {
       {view === "map" && <Heatmap positions={s.positions} total={s.value} onOpen={show} />}
 
       {view === "sectors" && <Sectors sectors={sectors} total={s.value} onPick={(t) => show(t)} />}
+
+      <p className="mx-4 mt-4 text-[11px] leading-snug text-dim">Mock quantities for the demo. End-of-day prices from Yahoo Finance as of {s.asOf}.</p>
 
       <AnimatePresence>{sel && <HoldingSheet key={sel.h.ticker} p={sel} weight={weight(sel)} hot={hot(sel)} filings={digest.filings.filter((f) => f.ticker === sel.h.ticker)} onClose={() => show(null)} />}</AnimatePresence>
     </main>
