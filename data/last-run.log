@@ -1,9 +1,11 @@
 screener: 18/18
 prices: 18/18
-filings: 263 (236 placed by rules)
-[5s] results: 12 filings
-[16s] second opinion: 40 filings
-[17s] management: 9 filings
-[18s] enrichment done
-done in 18s · 263 filings · rules 236 · llm calls 0 (cache hits 71) · tokens 0/0 · ~$0 · models {}
-telegram owner: sent 0
+filings: 272 (245 placed by rules)
+[11s] results: 13 filings
+gemini-3.8-flash: 503, waiting 4s
+[480s] second opinion: 41 filings
+gemini-3.7-flash: 503, waiting 4s
+[493s] management: 9 filings
+[494s] enrichment done
+done in 494s · 272 filings · rules 245 · llm calls 2 (cache hits 71) · tokens 18717/252 · ~$0.002 · models {"gemini-3.5-flash-lite":2}
+telegram owner: sent 8
