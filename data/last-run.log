@@ -1,17 +1,9 @@
 screener: 18/18
 prices: 18/18
-filings: 282 (254 placed by rules)
-[7s] results: 15 filings
-gemini-3.5-flash-lite: 503, waiting 4s
-gemini-3.8-flash: 503, waiting 8s
-[360s] second opinion: 42 filings
-gemini-3.5-flash-lite: 503, waiting 4s
-gemini-3.5-flash-lite: 503, waiting 8s
-[475s] management: 9 filings
-gemini-3.5-flash-lite: 503, waiting 4s
-gemini-3.5-flash-lite: 503, waiting 8s
-[561s] enrichment done
-done in 561s · 282 filings · rules 254 · llm calls 5 (cache hits 72) · tokens 48104/2541 · ~$0.0085 · models {"gemini-3.5-flash-lite":4,"gemini-2.5-flash":1}
-telegram owner: sent 4
-errors (1):
-  results SUNPHARMA: This operation was aborted
+filings: 271 (243 placed by rules)
+[6s] results: 15 filings
+[480s] second opinion: 42 filings
+[484s] management: 9 filings
+[485s] enrichment done
+done in 485s · 271 filings · rules 243 · llm calls 1 (cache hits 76) · tokens 1302/61 · ~$0.0002 · models {"gemini-3.5-flash-lite":1}
+telegram owner: sent 0
