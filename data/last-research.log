@@ -1,6 +1,6 @@
-run started 2026-10-29T20:13:15.370Z
-ASIANPAINT: 5 calls, ledger 6 rows, thesis ok in 428s 
+run started 2026-10-30T19:54:50.369Z
+ASIANPAINT: 5 calls, ledger 6 rows, thesis ok in 4s 
 KAYNES: 5 calls, ledger 6 rows, thesis ok in 3s 
 DMART: 5 calls, ledger 7 rows, thesis ok in 3s 
-TITAN: 5 calls, ledger 6 rows, thesis ok in 3s 
-llm calls 2, cache hits 26, tokens 7367/8706, ~$0.0240, {"gemini-3.8-flash":2}
+TITAN: 5 calls, ledger 6 rows, thesis ok in 2s 
+llm calls 0, cache hits 28, tokens 0/0, ~$0.0000, {}
