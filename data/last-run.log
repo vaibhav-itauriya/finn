@@ -1,27 +1,9 @@
 screener: 18/18
 prices: 18/18
-filings: 272 (243 placed by rules)
-[25s] results: 15 filings
-gemini-3.8-flash: 503, waiting 4s
-gemini-3.8-flash: 503, waiting 8s
-gemini-3.8-flash: 503, waiting 12s
-gemini-3.7-flash: 503, waiting 4s
-gemini-3.7-flash: 503, waiting 8s
-gemini-3.7-flash: 503, waiting 12s
-gemini-3.6-flash: 503, waiting 4s
-gemini-3.6-flash: 503, waiting 8s
-gemini-3.6-flash: 503, waiting 12s
-gemini-3.5-flash: 503, waiting 4s
-gemini-3.5-flash: 503, waiting 8s
-gemini-3.5-flash: 503, waiting 12s
-gemini-3-flash-preview: 503, waiting 4s
-gemini-3-flash-preview: 503, waiting 8s
-gemini-3-flash-preview: 503, waiting 12s
-gemini-flash-latest: 503, waiting 4s
-gemini-flash-latest: 503, waiting 8s
-gemini-flash-latest: 503, waiting 12s
-[201s] second opinion: 42 filings
-[207s] management: 9 filings
-[210s] enrichment done
-done in 210s · 272 filings · rules 243 · llm calls 2 (cache hits 76) · tokens 9856/2795 · ~$0.0097 · models {"gemini-2.5-flash":1,"gemini-3.5-flash-lite":1}
-telegram owner: sent 0
+filings: 278 (249 placed by rules)
+[6s] results: 15 filings
+[8s] second opinion: 39 filings
+[9s] management: 10 filings
+[13s] enrichment done
+done in 13s · 278 filings · rules 249 · llm calls 1 (cache hits 75) · tokens 675/125 · ~$0.0001 · models {"gemini-3.5-flash-lite":1}
+telegram owner: sent 1
