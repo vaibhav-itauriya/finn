@@ -67,6 +67,39 @@ export interface Meter {
 const deadModels = new Set<string>();
 // Grounded search has its own quota: running out of it says nothing about plain generation.
 const deadSearch = new Set<string>();
+
+// On the live site every request may land on a fresh serverless instance, so "this model is out of
+// quota today" is shared through the store; otherwise each instance would rediscover it, burning
+// seconds a person is waiting for. Free quotas reset at midnight Pacific.
+const resetIn = () => {
+  const pt = new Date(Date.now() - 8 * 3600e3);
+  return Math.max(600, 86400 - (pt.getUTCHours() * 3600 + pt.getUTCMinutes() * 60 + pt.getUTCSeconds()));
+};
+let sharedAt = 0;
+async function loadShared() {
+  if (Date.now() - sharedAt < 60e3) return;
+  sharedAt = Date.now();
+  try {
+    const { kv, kvEnabled } = await import("../kv");
+    if (!kvEnabled()) return;
+    const [g, s2] = await Promise.all([kv<string[]>("SMEMBERS", "finn:deadmodels"), kv<string[]>("SMEMBERS", "finn:deadsearch")]);
+    (g || []).forEach((m) => deadModels.add(m));
+    (s2 || []).forEach((m) => deadSearch.add(m));
+  } catch {
+    /* store unavailable: fall back to this instance's own memory */
+  }
+}
+async function shareDead(model: string, search: boolean) {
+  try {
+    const { kv, kvEnabled } = await import("../kv");
+    if (!kvEnabled()) return;
+    const key = search ? "finn:deadsearch" : "finn:deadmodels";
+    await kv("SADD", key, model);
+    await kv("EXPIRE", key, resetIn());
+  } catch {
+    /* best effort */
+  }
+}
 let llmLog: (s: string) => void = () => {};
 export function setLLMLogger(fn: (s: string) => void) {
   llmLog = fn;
@@ -125,7 +158,8 @@ async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse &
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   for (let attempt = 0; attempt < 4; attempt++) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 100_000);
+    // The live site has about a minute per request: never let one slow model eat all of it.
+    const timer = setTimeout(() => ctrl.abort(), process.env.VERCEL ? 35_000 : 100_000);
     let res: Response;
     try {
       res = await fetch(url, {
@@ -150,7 +184,9 @@ async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse &
         throw Object.assign(new Error(`${model} daily quota exhausted`), { status: 429, daily: true });
       }
       // Search has many models with separate buckets: moving on beats waiting out a minute.
-      if (req.tier === "search" || req.fast) throw Object.assign(new Error(`${model} rate limited`), { status: 429 });
+      // Live site: someone is waiting, so try the next model rather than sleep. The scheduled
+      // pipeline (GitHub) has time and keeps the polite wait.
+      if (req.tier === "search" || req.fast || process.env.VERCEL) throw Object.assign(new Error(`${model} rate limited`), { status: 429 });
       // Per-minute limit: honour the server's hint, capped, at most 3 times.
       const m = txt.match(/"retryDelay":\s*"(\d+)s"/);
       const wait = Math.min(30_000, m ? Number(m[1]) * 1000 + 500 : 4000 * (attempt + 1));
@@ -187,6 +223,7 @@ async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse &
 
 export async function llm(req: LLMRequest): Promise<LLMResponse> {
   const run = async (): Promise<LLMResponse> => {
+    await loadShared();
     let lastErr: unknown;
     for (const model of MODELS[req.tier].filter((m) => !deadModels.has(m) && !(req.tier === "search" && deadSearch.has(m)))) {
       try {
@@ -206,7 +243,10 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
         lastErr = e;
         const status = (e as { status?: number }).status;
         if (status === 404) deadModels.add(model); // retired
-        else if ((e as { daily?: boolean }).daily) (req.tier === "search" ? deadSearch : deadModels).add(model); // out of quota for today
+        else if ((e as { daily?: boolean }).daily) {
+          (req.tier === "search" ? deadSearch : deadModels).add(model); // out of quota for today
+          void shareDead(model, req.tier === "search");
+        }
         if (status !== 404 && status !== 400 && status !== 422 && status !== 429) throw e; // otherwise try the next model
       }
     }

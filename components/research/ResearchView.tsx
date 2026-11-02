@@ -60,10 +60,11 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
 
   const judge = async (ok: CallExtract[]) => {
     setJudging("loading");
-    const [l, t] = await Promise.allSettled([
-      api<Ledger>(`/api/research/${ticker}?step=ledger`, { calls: ok }),
-      api<Thesis>(`/api/research/${ticker}?step=thesis`, { calls: ok }),
-    ]);
+    const run = (step: "ledger" | "thesis") => api<Ledger & Thesis>(`/api/research/${ticker}?step=${step}`, { calls: ok });
+    // Free model quotas are bursty: if a step fails, try it once more before giving up. The second
+    // try is quicker because the server now knows which models are spent for the day.
+    const withRetry = (step: "ledger" | "thesis") => run(step).catch(() => new Promise((r) => setTimeout(r, 2500)).then(() => run(step)));
+    const [l, t] = await Promise.allSettled([withRetry("ledger"), withRetry("thesis")]);
     if (l.status === "fulfilled") setLedger(l.value);
     if (t.status === "fulfilled") setThesis(t.value);
     setJudging(l.status === "fulfilled" || t.status === "fulfilled" ? "done" : "error");

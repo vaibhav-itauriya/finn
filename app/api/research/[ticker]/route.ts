@@ -55,7 +55,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ ticker: string
   try {
     const { calls } = (await req.json()) as { calls: CallExtract[] };
     const clean = (calls || []).slice(0, 5);
-    const body = step === "ledger" ? await stepLedger(ticker, clean) : step === "thesis" ? await stepThesis(ticker, clean) : null;
+    // Answer before the platform's limit with a clear message instead of a dropped connection.
+    const work = step === "ledger" ? stepLedger(ticker, clean) : step === "thesis" ? stepThesis(ticker, clean) : null;
+    const body = work ? await Promise.race([work, new Promise<never>((_, rej) => setTimeout(() => rej(new Error("The free model quota is busy right now")), 55_000))]) : null;
     if (!body) return NextResponse.json({ error: `unknown step ${step}` }, { status: 400 });
     return NextResponse.json({ data: body, cost: { calls: meter.calls - before.calls, usd: meter.usd - before.usd } });
   } catch (e) {

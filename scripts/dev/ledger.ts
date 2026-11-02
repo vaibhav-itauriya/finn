@@ -1,6 +1,7 @@
 // Time the live research steps for one company: npx tsx scripts/dev/ledger.ts ITC
 import { setLLMLogger, meter } from "../../lib/llm/router";
 import { stepNumbers, stepCall, stepLedger, stepThesis } from "../../lib/pull/research";
+import type { CallExtract } from "../../lib/pull/calls";
 const t = process.argv[2] || "ITC";
 const t0 = Date.now();
 const at = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
@@ -8,7 +9,7 @@ setLLMLogger((s) => console.log(at(), "llm:", s));
 (async () => {
   const { transcripts } = await stepNumbers(t);
   console.log(at(), "docs:", transcripts.map((x) => `${x.label}${x.kind ? "(ar)" : ""}`).join(", "));
-  const calls = [];
+  const calls: CallExtract[] = [];
   for (let i = 0; i < transcripts.length; i++) {
     try {
       const c = await stepCall(t, i);
