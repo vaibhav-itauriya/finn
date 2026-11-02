@@ -410,8 +410,18 @@ function Verdict({ ledger, ticker }: { ledger: Ledger; ticker: string }) {
   return (
     <section className="card mx-4 mt-3 p-4">
       <p className="text-[26px] leading-[1.1] font-extrabold tracking-tight">
-        Kept {c.delivered} of {judged} {judged === 1 ? "promise" : "promises"}
-        {c.partly ? `, ${c.partly} partly` : ""}.
+        {judged > 0 ? (
+          <>
+            Kept {c.delivered} of {judged} {judged === 1 ? "promise" : "promises"}
+            {c.partly ? `, ${c.partly} partly` : ""}.
+          </>
+        ) : c.pending > 0 ? (
+          <>
+            {c.pending} {c.pending === 1 ? "promise" : "promises"} still in play.
+          </>
+        ) : (
+          <>No measurable promises yet.</>
+        )}
       </p>
       <p className="mt-2 text-[15px] leading-snug">{c.line}</p>
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[12px]">
