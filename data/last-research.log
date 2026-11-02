@@ -1,6 +1,6 @@
-run started 2026-11-01T19:33:49.201Z
+run started 2026-11-02T23:05:12.495Z
 ASIANPAINT: 5 calls, ledger 6 rows, thesis ok in 4s 
 KAYNES: 5 calls, ledger 6 rows, thesis ok in 3s 
-DMART: 5 calls, ledger 7 rows, thesis ok in 6s 
-TITAN: 5 calls, ledger 6 rows, thesis ok in 5s 
+DMART: 5 calls, ledger 7 rows, thesis ok in 3s 
+TITAN: 5 calls, ledger 6 rows, thesis ok in 2s 
 llm calls 0, cache hits 28, tokens 0/0, ~$0.0000, {}
