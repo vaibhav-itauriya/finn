@@ -1,9 +1,9 @@
 screener: 18/18
 prices: 18/18
-filings: 274 (246 placed by rules)
-[8s] results: 16 filings
-[16s] second opinion: 44 filings
-[21s] management: 9 filings
-[21s] enrichment done
-done in 21s · 274 filings · rules 246 · llm calls 0 (cache hits 82) · tokens 0/0 · ~$0 · models {}
-telegram owner: sent 0
+filings: 276 (248 placed by rules)
+[6s] results: 16 filings
+[8s] second opinion: 44 filings
+[8s] management: 9 filings
+[9s] enrichment done
+done in 9s · 276 filings · rules 248 · llm calls 0 (cache hits 82) · tokens 0/0 · ~$0 · models {}
+telegram owner: sent 3
