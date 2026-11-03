@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       tickers:
-        description: "Space-separated NSE tickers (blank = demo set)"
+        description: "Space-separated NSE tickers (blank = demo set and all holdings)"
         default: ""
   push:
     paths:
@@ -26,7 +26,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,7 +35,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Precompute
-        timeout-minutes: 38
+        timeout-minutes: 66
         continue-on-error: true
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

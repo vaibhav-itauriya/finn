@@ -4,14 +4,16 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { appendFileSync } from "node:fs";
-import { RESEARCH_DEMO } from "../config/portfolio";
+import { PORTFOLIO, RESEARCH_DEMO } from "../config/portfolio";
 import { meter, setLLMLogger } from "../lib/llm/router";
 import { fullReport } from "../lib/pull/research";
 
 process.env.FINN_CACHE_WRITE = "1";
 
 async function main() {
-  const tickers = process.argv.slice(2).length ? process.argv.slice(2) : RESEARCH_DEMO;
+  // Demo companies first, then every holding, so the research a portfolio manager is most likely
+  // to open is ready before they ask. Anything else is read live.
+  const tickers = process.argv.slice(2).length ? process.argv.slice(2) : [...RESEARCH_DEMO, ...PORTFOLIO.map((h) => h.ticker)];
   const dir = path.join(process.cwd(), "data", "research");
   await fs.mkdir(dir, { recursive: true });
   const logFile = path.join(process.cwd(), "data", "last-research.log");

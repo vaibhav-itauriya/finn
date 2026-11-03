@@ -138,6 +138,17 @@ export function hasLLM() {
   return Boolean(process.env.GEMINI_API_KEY);
 }
 
+const live = (req: LLMRequest) => Boolean(req.fast || process.env.VERCEL);
+function thinkingLow(model: string): object {
+  if (/^gemini-3/.test(model)) return { thinkingConfig: { thinkingLevel: "low" } };
+  if (/^gemini-2\.5-flash$|^gemini-flash-latest$/.test(model)) return { thinkingConfig: { thinkingBudget: 0 } };
+  return {};
+}
+
+// A model that just said "busy" (503) or "slow down" is skipped for a short while by this instance
+// instead of being asked again on the next call.
+const cooling = new Map<string, number>();
+
 async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse & { tin: number; tout: number }> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
@@ -150,6 +161,9 @@ async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse &
       maxOutputTokens: req.maxOutputTokens ?? 4096,
       ...(req.json && req.tier !== "search" && !gemma ? { responseMimeType: "application/json" } : {}),
       ...(req.schema && req.tier !== "search" && !gemma ? { responseSchema: req.schema } : {}),
+      // Someone is waiting (live site): keep the model's private "thinking" short. Measured on this
+      // key, that takes a judgement call from about 5s to under 2s. Overnight runs think fully.
+      ...(live(req) && req.tier !== "search" ? thinkingLow(model) : {}),
     },
   };
   if (req.system && !gemma) body.systemInstruction = { parts: [{ text: req.system }] };
@@ -186,7 +200,10 @@ async function callGemini(model: string, req: LLMRequest): Promise<LLMResponse &
       // Search has many models with separate buckets: moving on beats waiting out a minute.
       // Live site: someone is waiting, so try the next model rather than sleep. The scheduled
       // pipeline (GitHub) has time and keeps the polite wait.
-      if (req.tier === "search" || req.fast || process.env.VERCEL) throw Object.assign(new Error(`${model} rate limited`), { status: 429 });
+      if (req.tier === "search" || live(req)) {
+        cooling.set(model, Date.now() + 90_000);
+        throw Object.assign(new Error(`${model} rate limited`), { status: 429 });
+      }
       // Per-minute limit: honour the server's hint, capped, at most 3 times.
       const m = txt.match(/"retryDelay":\s*"(\d+)s"/);
       const wait = Math.min(30_000, m ? Number(m[1]) * 1000 + 500 : 4000 * (attempt + 1));
@@ -225,7 +242,9 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
   const run = async (): Promise<LLMResponse> => {
     await loadShared();
     let lastErr: unknown;
-    for (const model of MODELS[req.tier].filter((m) => !deadModels.has(m) && !(req.tier === "search" && deadSearch.has(m)))) {
+    const usable = MODELS[req.tier].filter((m) => !deadModels.has(m) && !(req.tier === "search" && deadSearch.has(m)));
+    const warm = usable.filter((m) => (cooling.get(m) ?? 0) < Date.now());
+    for (const model of warm.length ? [...warm, ...usable.filter((m) => !warm.includes(m))] : usable) {
       try {
         let r = await callGemini(model, req);
         // Never cache a reply we can't parse: retry once, then give up loudly.

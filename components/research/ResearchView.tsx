@@ -64,9 +64,8 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
     // Free model quotas are bursty: if a step fails, try it once more before giving up. The second
     // try is quicker because the server now knows which models are spent for the day.
     const withRetry = (step: "ledger" | "thesis") => run(step).catch(() => new Promise((r) => setTimeout(r, 2500)).then(() => run(step)));
-    const [l, t] = await Promise.allSettled([withRetry("ledger"), withRetry("thesis")]);
-    if (l.status === "fulfilled") setLedger(l.value);
-    if (t.status === "fulfilled") setThesis(t.value);
+    // Show each part the moment it's ready: the verdict shouldn't wait for bull and bear.
+    const [l, t] = await Promise.allSettled([withRetry("ledger").then((v) => (setLedger(v), v)), withRetry("thesis").then((v) => (setThesis(v), v))]);
     setJudging(l.status === "fulfilled" || t.status === "fulfilled" ? "done" : "error");
   };
 
@@ -202,6 +201,7 @@ export function ResearchView({ ticker, initial }: { ticker: string; initial: Res
           {thesis && <BullBear thesis={thesis} />}
           {thesis?.business && <Business thesis={thesis} />}
           {noDocs && <NoDocs ticker={ticker} />}
+          {ledger && !thesis && judging === "loading" && <Skeleton rows={3} label="Writing the bull and bear case" />}
           {!ledger && !thesis && !noDocs && <Loading calls={calls} callStatus={callStatus} transcripts={transcripts} judging={judging} what="verdict" errors={callErrors.current} onRetry={doneCalls.length ? () => judge(doneCalls) : undefined} />}
         </>
       )}
