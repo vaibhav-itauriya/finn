@@ -82,13 +82,33 @@ async function loadShared() {
   try {
     const { kv, kvEnabled } = await import("../kv");
     if (!kvEnabled()) return;
-    const [g, s2] = await Promise.all([kv<string[]>("SMEMBERS", "finn:deadmodels"), kv<string[]>("SMEMBERS", "finn:deadsearch")]);
+    const [g, s2, good] = await Promise.all([
+      kv<string[]>("SMEMBERS", "finn:deadmodels"),
+      kv<string[]>("SMEMBERS", "finn:deadsearch"),
+      kv<string[]>("MGET", "finn:good:bulk", "finn:good:reason"),
+    ]);
     (g || []).forEach((m) => deadModels.add(m));
     (s2 || []).forEach((m) => deadSearch.add(m));
+    if (good?.[0]) lastGood.bulk = good[0];
+    if (good?.[1]) lastGood.reason = good[1];
   } catch {
     /* store unavailable: fall back to this instance's own memory */
   }
 }
+// The model that last answered for each tier, tried first: on a busy day this skips several
+// overloaded models per request.
+const lastGood: Partial<Record<LLMTier, string>> = {};
+async function shareGood(tier: LLMTier, model: string) {
+  if (lastGood[tier] === model || tier === "search") return;
+  lastGood[tier] = model;
+  try {
+    const { kv, kvEnabled } = await import("../kv");
+    if (kvEnabled()) await kv("SET", `finn:good:${tier}`, model, "EX", 900);
+  } catch {
+    /* best effort */
+  }
+}
+
 async function shareDead(model: string, search: boolean) {
   try {
     const { kv, kvEnabled } = await import("../kv");
@@ -243,6 +263,8 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
     await loadShared();
     let lastErr: unknown;
     const usable = MODELS[req.tier].filter((m) => !deadModels.has(m) && !(req.tier === "search" && deadSearch.has(m)));
+    const g = lastGood[req.tier];
+    if (g && usable.includes(g)) usable.splice(usable.indexOf(g), 1), usable.unshift(g);
     const warm = usable.filter((m) => (cooling.get(m) ?? 0) < Date.now());
     for (const model of warm.length ? [...warm, ...usable.filter((m) => !warm.includes(m))] : usable) {
       try {
@@ -252,6 +274,7 @@ export async function llm(req: LLMRequest): Promise<LLMResponse> {
         if (wantsJSON && !isJSON(r.text)) r = await callGemini(model, { ...req, temperature: 0 });
         if (wantsJSON && !isJSON(r.text)) throw Object.assign(new Error(`${model} returned unparseable JSON`), { status: 422 });
         meter.calls++;
+        if (live(req)) void shareGood(req.tier, model);
         meter.tokensIn += r.tin;
         meter.tokensOut += r.tout;
         meter.models[model] = (meter.models[model] || 0) + 1;
