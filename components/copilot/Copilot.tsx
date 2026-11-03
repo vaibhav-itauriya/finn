@@ -1,4 +1,5 @@
 "use client";
+import { startNav } from "../NavProgress";
 // Ask FINN: the mic in the middle of the tab bar, on every screen. Tap, speak, and FINN answers aloud
 // from the portfolio's own data, then offers the screen that shows the detail. Typing works too.
 import { AnimatePresence, motion } from "framer-motion";
@@ -95,6 +96,7 @@ export function Copilot() {
         const asked = (q || j.heard || "").toLowerCase();
         if (j.path && /^(open|show|go to|take me|research|खोलो|दिखाओ)/.test(asked.trim())) {
           setTimeout(() => {
+            startNav();
             router.push(j.path);
           }, 900);
         }
@@ -242,7 +244,7 @@ export function Copilot() {
                         {m.role === "finn" && !m.error && (
                           <div className="mt-2 flex items-center gap-3">
                             {m.path && (
-                              <button onClick={() => { close(); router.push(m.path!); }} className="rounded-full bg-brand px-3 py-1 text-[12px] font-bold text-brand-ink">
+                              <button onClick={() => { close(); startNav(); router.push(m.path!); }} className="rounded-full bg-brand px-3 py-1 text-[12px] font-bold text-brand-ink">
                                 {m.label || "Open"} ›
                               </button>
                             )}

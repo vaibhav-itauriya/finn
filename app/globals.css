@@ -133,3 +133,25 @@ input[type="range"] {
     transition: none !important;
   }
 }
+
+/* Every tap gets an instant response, even before the next screen is ready. */
+@layer base {
+  button,
+  a,
+  [role="button"],
+  [role="tab"],
+  summary {
+    transition: transform 0.08s ease, opacity 0.08s ease;
+    touch-action: manipulation; /* no 300ms double-tap delay */
+  }
+  button:active:not(:disabled),
+  a:active,
+  [role="button"]:active,
+  [role="tab"]:active {
+    transform: scale(0.97);
+    opacity: 0.85;
+  }
+  button:disabled {
+    cursor: progress;
+  }
+}

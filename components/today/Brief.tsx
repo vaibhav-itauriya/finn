@@ -1,4 +1,5 @@
 "use client";
+import { Spinner } from "../Spinner";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "../Icon";
@@ -77,7 +78,16 @@ export function Brief({ hours, auto }: { hours: number; auto?: boolean }) {
           </button>
         </div>
       )}
-      {state === "loading" && <p className="mt-2 text-[14px] font-semibold opacity-90">Reading the scored filings…</p>}
+      {state === "loading" && (
+        <div className="mt-2" aria-busy="true">
+          <p className="flex items-center gap-2 text-[14px] font-semibold opacity-90">
+            <Spinner size={15} /> Reading the scored filings…
+          </p>
+          {[86, 70, 78].map((w, i) => (
+            <div key={i} className="mt-2 h-3 animate-pulse rounded-full bg-hero-ink/20" style={{ width: `${w}%` }} />
+          ))}
+        </div>
+      )}
       {state === "error" && (
         <p className="mt-2 text-[13px]">
           Couldn&apos;t write the brief ({err}).{" "}

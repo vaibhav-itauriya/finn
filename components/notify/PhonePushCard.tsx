@@ -1,4 +1,5 @@
 "use client";
+import { Spinner } from "../Spinner";
 import clsx from "clsx";
 import { Icon } from "../Icon";
 import { usePhonePush } from "@/lib/client/push";
@@ -30,7 +31,13 @@ export function PhonePushCard({ compact }: { compact?: boolean }) {
       </div>
       {(p.state === "off" || p.state === "busy") && (
         <button onClick={p.enable} disabled={p.state === "busy"} className="mt-3 w-full rounded-xl bg-brand py-2.5 text-[14px] font-bold text-brand-ink disabled:opacity-60">
-          {p.state === "busy" ? "Checking…" : "Turn on notifications"}
+          {p.state === "busy" ? (
+            <span className="inline-flex items-center gap-2">
+              <Spinner size={15} /> Checking…
+            </span>
+          ) : (
+            "Turn on notifications"
+          )}
         </button>
       )}
       {on && (

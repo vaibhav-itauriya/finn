@@ -2,6 +2,7 @@
 // One Share button for every card. It opens a small sheet with everywhere the card can go:
 // your own FINN bot on Telegram (the full formatted card), WhatsApp, Telegram to anyone,
 // the phone's own share sheet (every app installed), or copy as text.
+import { Spinner } from "../Spinner";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -34,6 +35,7 @@ function ShareSheet({ payload, onClose }: { payload: SharePayload; onClose: () =
   const tg = useTelegram();
   const [status, setStatus] = useState<{ text: string; bad?: boolean } | null>(null);
   const [native, setNative] = useState(false);
+  const sending = status?.text === "Sending…";
   useEffect(() => {
     setNative(typeof navigator !== "undefined" && typeof navigator.share === "function");
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -149,9 +151,9 @@ function ShareSheet({ payload, onClose }: { payload: SharePayload; onClose: () =
             .filter((o) => !o.hide)
             .map((o) => (
               <li key={o.key}>
-                <button onClick={o.go} className="flex w-full items-center gap-3 py-3 text-left active:opacity-70">
+                <button onClick={o.go} disabled={sending} className="flex w-full items-center gap-3 py-3 text-left active:opacity-70 disabled:opacity-60">
                   <span className={clsx("grid h-10 w-10 shrink-0 place-items-center rounded-full", o.tint)}>
-                    <Icon name={o.icon} size={19} />
+                    {sending && o.key === "bot" ? <Spinner size={19} /> : <Icon name={o.icon} size={19} />}
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[14.5px] font-bold">{o.label}</span>

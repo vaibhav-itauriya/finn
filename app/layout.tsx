@@ -3,6 +3,8 @@ import "./globals.css";
 import { TabBar } from "@/components/TabBar";
 import { Copilot } from "@/components/copilot/Copilot";
 import { SWRegister } from "@/components/SWRegister";
+import { NavProgress } from "@/components/NavProgress";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "FINN",
@@ -32,6 +34,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
       </head>
       <body className="font-sans min-h-dvh">
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
         <div className="mx-auto max-w-[520px] min-h-dvh pb-[calc(80px+env(safe-area-inset-bottom))]">{children}</div>
         <TabBar />
         <Copilot />

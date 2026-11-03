@@ -1,4 +1,5 @@
 "use client";
+import { Spinner as SmallSpinner } from "../Spinner";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
@@ -665,7 +666,7 @@ function Ask({ ticker }: { ticker: string }) {
           className="min-w-0 flex-1 rounded-lg border border-rule bg-sheet px-3 py-2.5 text-[15px] outline-none focus:border-ink"
         />
         <button className="rounded-lg bg-ink px-4 text-[14px] font-medium text-paper" disabled={state === "loading"}>
-          {state === "loading" ? "…" : "Ask"}
+          {state === "loading" ? <SmallSpinner size={16} /> : "Ask"}
         </button>
       </form>
       {state === "error" && <p className="mt-2 text-[13px] text-down">Couldn&apos;t answer that right now. Try again in a minute.</p>}

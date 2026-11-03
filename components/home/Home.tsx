@@ -1,4 +1,5 @@
 "use client";
+import { Spinner } from "../Spinner";
 import Link from "next/link";
 import { useMemo } from "react";
 import clsx from "clsx";
@@ -199,8 +200,8 @@ function AskCard() {
       <p className="text-[15px] font-extrabold">Ask FINN</p>
       <p className="mt-0.5 text-[12.5px] leading-snug opacity-85">Talk to your portfolio. Answers are read aloud.</p>
       <div className="mt-3 flex gap-2">
-        <button onClick={play} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-hero-ink/15 py-2.5 text-[13.5px] font-bold">
-          <Icon name={speaking ? "stop" : "play"} size={15} />
+        <button onClick={play} disabled={state === "loading"} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-hero-ink/15 py-2.5 text-[13.5px] font-bold">
+          {state === "loading" ? <Spinner size={15} /> : <Icon name={speaking ? "stop" : "play"} size={15} />}
           {state === "loading" ? "Preparing…" : speaking ? "Stop" : "60-second briefing"}
         </button>
         <button onClick={() => askFinn()} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-hero-ink py-2.5 text-[13.5px] font-bold text-hero">

@@ -1,4 +1,5 @@
 "use client";
+import { Spinner } from "../Spinner";
 import { useState } from "react";
 import clsx from "clsx";
 import { Icon } from "../Icon";
@@ -37,7 +38,7 @@ export function TelegramBanner({ compact }: { compact?: boolean }) {
           }}
           className="shrink-0 rounded-full bg-brand px-3 py-1.5 text-[12px] font-bold text-brand-ink"
         >
-          Send digest
+          {sent === "Sending…" ? <Spinner size={13} /> : "Send digest"}
         </button>
       </section>
     );
@@ -57,7 +58,9 @@ export function TelegramBanner({ compact }: { compact?: boolean }) {
       </div>
       {tg.status === "waiting" ? (
         <div className="mt-3 rounded-xl bg-brand-soft p-3 text-[12.5px]" aria-live="polite">
-          <p className="font-semibold text-brand">Waiting for you to press Start in Telegram…</p>
+          <p className="flex items-center gap-2 font-semibold text-brand">
+            <Spinner size={14} /> Waiting for you to press Start in Telegram…
+          </p>
           {tg.link && (
             <a href={tg.link} target="_blank" rel="noreferrer" className="mt-1 block text-brand underline">
               Telegram didn&apos;t open? Tap here.

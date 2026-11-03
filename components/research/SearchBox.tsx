@@ -1,4 +1,6 @@
 "use client";
+import { Spinner } from "../Spinner";
+import { startNav } from "../NavProgress";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -20,17 +22,26 @@ export function SearchBox() {
       return;
     }
     timer.current = setTimeout(async () => {
+      setSearching(true);
       try {
         const r = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`);
         const j = await r.json();
         setHits(j.data || []);
       } catch {
         setHits([]);
+      } finally {
+        setSearching(false);
       }
     }, 220);
   }, [q]);
 
-  const go = (t: string) => router.push(`/research/${encodeURIComponent(t.trim().toUpperCase())}`);
+  const [searching, setSearching] = useState(false);
+  const [going, setGoing] = useState<string | null>(null);
+  const go = (t: string) => {
+    setGoing(t.trim().toUpperCase());
+    startNav();
+    router.push(`/research/${encodeURIComponent(t.trim().toUpperCase())}`);
+  };
 
   return (
     <form
@@ -51,8 +62,14 @@ export function SearchBox() {
         placeholder="Company or NSE symbol, e.g. Kaynes"
         autoComplete="off"
         autoCapitalize="characters"
-        className="card w-full px-4 py-3.5 text-[16px] outline-none focus:ring-2 focus:ring-brand"
+        className="card w-full px-4 py-3.5 pr-11 text-[16px] outline-none focus:ring-2 focus:ring-brand"
       />
+      {(searching || going) && (
+        <span className="absolute right-4 top-[15px] text-brand" aria-label={going ? `Opening ${going}` : "Searching"}>
+          <Spinner size={18} />
+        </span>
+      )}
+      {going && <p className="mt-2 text-[12.5px] font-semibold text-brand">Opening {going}…</p>}
       {hits.length > 0 && (
         <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-rule bg-sheet shadow-lg">
           {hits.map((h) => (
