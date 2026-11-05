@@ -135,6 +135,11 @@
   "input": 131072
  },
  {
+  "name": "gemini-omni-1.2-flash",
+  "display": "Gemini Omni 1.2 Flash",
+  "input": 131072
+ },
+ {
   "name": "gemini-3.5-transcribe",
   "display": "Gemini 3.5 Transcribe",
   "input": 98304
