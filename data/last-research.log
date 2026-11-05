@@ -1,34 +1,32 @@
-run started 2026-11-04T21:15:17.415Z
+run started 2026-11-05T21:26:58.904Z
 ASIANPAINT: 5 calls, ledger 5 rows, thesis ok in 4s 
 KAYNES: 5 calls, ledger 6 rows, thesis ok in 2s 
-DMART: 5 calls, ledger 7 rows, thesis ok in 3s 
-TITAN: 5 calls, ledger 6 rows, thesis ok in 2s 
-RELIANCE: 5 calls, ledger 7 rows, thesis ok in 4s 
-HDFCBANK: 5 calls, ledger 6 rows, thesis ok in 3s 
-TCS: 5 calls, ledger 4 rows, thesis ok in 3s 
-BHARTIARTL: 5 calls, ledger 4 rows, thesis ok in 5s 
-LT: 5 calls, ledger 6 rows, thesis ok in 5s 
-ITC: 2 calls, ledger 2 rows, thesis ok in 2s 
+DMART: 5 calls, ledger 7 rows, thesis ok in 4s 
+gemini-3.8-flash: 503, waiting 4s
+gemini-3.8-flash: 503, waiting 8s
 gemini-3.8-flash: 503, waiting 12s
 gemini-3.7-flash: 503, waiting 4s
 gemini-3.7-flash: 503, waiting 8s
 gemini-3.7-flash: 503, waiting 12s
 gemini-3.6-flash: 503, waiting 4s
 gemini-3.6-flash: 503, waiting 8s
-gemini-3.6-flash: 503, waiting 12s
+gemini-3.6-flash: 503, waiting 16s
 gemini-3.5-flash: 503, waiting 4s
-SUNPHARMA: 5 calls, ledger 7 rows, thesis ok in 347s 
-MARUTI: 2 calls, ledger 3 rows, thesis ok in 4s 
-BAJFINANCE: 5 calls, ledger 7 rows, thesis ok in 2s 
-ETERNAL: 5 calls, ledger 8 rows, thesis ok in 3s 
-TRENT: 2 calls, ledger 2 rows, thesis ok in 2s 
-HAL: 5 calls, ledger 6 rows, thesis ok in 1s 
-COALINDIA: 5 calls, ledger 6 rows, thesis ok in 3s 
-DIXON: 5 calls, ledger 8 rows, thesis ok in 3s 
-POLYCAB: 5 calls, ledger 6 rows, thesis ok in 4s 
-PERSISTENT: 5 calls, ledger 5 rows, thesis ok in 4s 
-KPITTECH: 5 calls, ledger 8 rows, thesis ok in 3s 
-gemini-3.5-flash-lite: 503, waiting 4s
+gemini-3.5-flash: 503, waiting 8s
+gemini-3.5-flash: 503, waiting 12s
+gemini-flash-latest: 503, waiting 4s
+gemini-flash-latest: 503, waiting 8s
+gemini-flash-latest: 503, waiting 12s
+gemini-3.8-flash: 503, waiting 4s
+gemini-3.8-flash: 503, waiting 8s
+gemini-3.8-flash: 503, waiting 12s
+gemini-3.7-flash: 503, waiting 4s
+gemini-3.7-flash: 503, waiting 8s
+gemini-3.7-flash: 503, waiting 12s
+TITAN: 5 calls, ledger 8 rows, thesis ok in 383s 
+RELIANCE: 5 calls, ledger 7 rows, thesis ok in 4s 
+HDFCBANK: 5 calls, ledger 6 rows, thesis ok in 3s 
+TCS: 5 calls, ledger 4 rows, thesis ok in 3s 
 gemini-3.8-flash: 503, waiting 4s
 gemini-3.8-flash: 503, waiting 8s
 gemini-3.8-flash: 503, waiting 12s
@@ -40,13 +38,28 @@ gemini-3.6-flash: 503, waiting 8s
 gemini-3.6-flash: 503, waiting 12s
 gemini-3.5-flash: 503, waiting 4s
 gemini-3.5-flash: 503, waiting 8s
-gemini-3.5-flash: 503, waiting 12s
-gemini-3-flash-preview: 503, waiting 4s
 gemini-3.8-flash: 503, waiting 4s
-gemini-3.8-flash: 503, waiting 8s
-gemini-3.8-flash: 503, waiting 12s
-gemini-3.7-flash: 503, waiting 4s
-gemini-3.7-flash: 503, waiting 8s
-gemini-3.7-flash: 503, waiting 12s
-DEEPAKNTR: 5 calls, ledger 6 rows, thesis ok in 226s 
-llm calls 8, cache hits 137, tokens 74273/23341, ~$0.0594, {"gemini-3.5-flash-lite":4,"gemini-3.8-flash":1,"gemini-3.5-flash":1,"gemini-3-flash-preview":1,"gemini-3.6-flash":1}
+gemini-3.8-flash: daily quota exhausted, falling back
+gemini-3.7-flash: daily quota exhausted, falling back
+gemini-3.6-flash: 503, waiting 4s
+gemini-3.6-flash: 503, waiting 8s
+gemini-3.6-flash: 503, waiting 12s
+BHARTIARTL: 5 calls, ledger 3 rows, thesis ok in 176s 
+LT: 5 calls, ledger 6 rows, thesis ok in 5s 
+ITC: 2 calls, ledger 2 rows, thesis ok in 2s 
+SUNPHARMA: 5 calls, ledger 7 rows, thesis ok in 3s 
+MARUTI: 2 calls, ledger 3 rows, thesis ok in 3s 
+BAJFINANCE: 5 calls, ledger 7 rows, thesis ok in 3s 
+ETERNAL: 5 calls, ledger 8 rows, thesis ok in 2s 
+TRENT: 2 calls, ledger 2 rows, thesis ok in 4s 
+HAL: 5 calls, ledger 6 rows, thesis ok in 2s 
+COALINDIA: 5 calls, ledger 6 rows, thesis ok in 3s 
+gemini-3.5-flash-lite: 503, waiting 4s
+gemini-3.5-flash-lite: 503, waiting 8s
+gemini-3.5-flash-lite: 503, waiting 12s
+DIXON: 5 calls, ledger 6 rows, thesis ok in 70s 
+POLYCAB: 5 calls, ledger 6 rows, thesis ok in 4s 
+PERSISTENT: 5 calls, ledger 5 rows, thesis ok in 5s 
+KPITTECH: 5 calls, ledger 8 rows, thesis ok in 3s 
+DEEPAKNTR: 5 calls, ledger 6 rows, thesis ok in 2s 
+llm calls 8, cache hits 137, tokens 53962/30003, ~$0.0803, {"gemini-2.5-flash":1,"gemini-3.6-flash":3,"gemini-3.5-flash":2,"gemini-3.1-flash-lite":1,"gemini-3.5-flash-lite":1}
