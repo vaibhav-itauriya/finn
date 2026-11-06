@@ -1,9 +1,11 @@
 screener: 18/18
 prices: 18/18
-filings: 298 (262 placed by rules)
-[13s] results: 17 filings
-[17s] second opinion: 49 filings
-[19s] management: 9 filings
-[19s] enrichment done
-done in 19s · 298 filings · rules 262 · llm calls 0 (cache hits 88) · tokens 0/0 · ~$0 · models {}
+filings: 284 (249 placed by rules)
+[5s] results: 17 filings
+[6s] second opinion: 47 filings
+[7s] management: 9 filings
+[7s] enrichment done
+done in 7s · 284 filings · rules 249 · llm calls 0 (cache hits 86) · tokens 0/0 · ~$0 · models {}
 telegram owner: sent 0
+errors (1):
+  bse RELIANCE: HTTP 400 for https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=20261008&strScrip=500325&strSearch=P&strToDate=20261107&strType=C&subcategory=-1
