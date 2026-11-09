@@ -222,16 +222,16 @@
  {
   "name": "deep-research-max-preview-04-2026",
   "display": "Deep Research Max Preview (Apr-21-2026)",
-  "input": 131072
+  "input": 1048576
  },
  {
   "name": "deep-research-preview-04-2026",
   "display": "Deep Research Preview (Apr-21-2026)",
-  "input": 131072
+  "input": 1048576
  },
  {
   "name": "deep-research-pro-preview-12-2025",
   "display": "Deep Research Pro Preview (Dec-12-2025) [Rerouted]",
-  "input": 131072
+  "input": 1048576
  }
 ]

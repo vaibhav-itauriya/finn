@@ -1,11 +1,9 @@
 screener: 18/18
 prices: 18/18
-filings: 265 (231 placed by rules)
-[7s] results: 16 filings
-[7s] second opinion: 45 filings
-[9s] management: 8 filings
-[9s] enrichment done
-done in 9s · 265 filings · rules 231 · llm calls 1 (cache hits 81) · tokens 1296/60 · ~$0.0002 · models {"gemini-3.5-flash-lite":1}
-telegram owner: sent 1
-errors (1):
-  bse DEEPAKNTR: HTTP 400 for https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=20261010&strScrip=506401&strSearch=P&strToDate=20261109&strType=C&subcategory=-1
+filings: 260 (226 placed by rules)
+[5s] results: 16 filings
+[6s] second opinion: 46 filings
+[9s] management: 7 filings
+[10s] enrichment done
+done in 10s · 260 filings · rules 226 · llm calls 0 (cache hits 81) · tokens 0/0 · ~$0 · models {}
+telegram owner: sent 0
