@@ -1,9 +1,19 @@
-screener: 18/18
+screener: 15/18
 prices: 18/18
-filings: 260 (226 placed by rules)
-[5s] results: 16 filings
-[6s] second opinion: 46 filings
-[7s] management: 7 filings
-[7s] enrichment done
-done in 7s · 260 filings · rules 226 · llm calls 0 (cache hits 81) · tokens 0/0 · ~$0 · models {}
-telegram owner: sent 0
+filings: 263 (229 placed by rules)
+[14s] results: 16 filings
+gemini-3.8-flash: 503, waiting 8s
+gemini-3.8-flash: 503, waiting 12s
+gemini-3.7-flash: 503, waiting 4s
+gemini-3.7-flash: 503, waiting 8s
+[376s] second opinion: 45 filings
+[379s] management: 7 filings
+[379s] enrichment done
+done in 379s · 263 filings · rules 229 · llm calls 1 (cache hits 79) · tokens 2936/444 · ~$0.0005 · models {"gemini-3.5-flash-lite":1}
+telegram owner: sent 2
+errors (5):
+  screener RELIANCE: fetch failed
+  screener LT: fetch failed
+  screener HAL: fetch failed
+  bse DEEPAKNTR: HTTP 400 for https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=20261011&strScrip=506401&strSearch=P&strToDate=20261110&strType=C&subcategory=-1
+  results MARUTI: This operation was aborted
