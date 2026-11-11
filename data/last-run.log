@@ -1,9 +1,12 @@
 screener: 18/18
 prices: 18/18
-filings: 264 (230 placed by rules)
-[6s] results: 16 filings
-[7s] second opinion: 43 filings
-[8s] management: 7 filings
-[8s] enrichment done
-done in 8s · 264 filings · rules 230 · llm calls 0 (cache hits 79) · tokens 0/0 · ~$0 · models {}
+filings: 266 (232 placed by rules)
+[11s] results: 16 filings
+[12s] second opinion: 41 filings
+[14s] management: 5 filings
+[14s] enrichment done
+done in 14s · 266 filings · rules 232 · llm calls 1 (cache hits 73) · tokens 1247/58 · ~$0.0001 · models {"gemini-3.5-flash-lite":1}
 telegram owner: sent 1
+errors (2):
+  bse HDFCBANK: HTTP 400 for https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=20261012&strScrip=500180&strSearch=P&strToDate=20261111&strType=C&subcategory=-1
+  bse DEEPAKNTR: fetch failed
