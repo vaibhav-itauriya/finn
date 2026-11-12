@@ -170,6 +170,11 @@
   "input": 1048576
  },
  {
+  "name": "gemini-4-hydrogen",
+  "display": "Gemini 4 Hydrogen",
+  "input": 1048576
+ },
+ {
   "name": "lyria-3-clip-preview",
   "display": "Lyria 3 Clip Preview",
   "input": 1048576
