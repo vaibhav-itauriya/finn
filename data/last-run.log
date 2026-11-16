@@ -1,12 +1,9 @@
 screener: 18/18
 prices: 18/18
-filings: 224 (194 placed by rules)
-[6s] results: 15 filings
-[7s] second opinion: 32 filings
-[8s] management: 10 filings
-[8s] enrichment done
-done in 8s · 224 filings · rules 194 · llm calls 0 (cache hits 72) · tokens 0/0 · ~$0 · models {}
-telegram owner: sent 3
-errors (2):
-  bse BAJFINANCE: HTTP 400 for https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=20261017&strScrip=500034&strSearch=P&strToDate=20261116&strType=C&subcategory=-1
-  bse POLYCAB: HTTP 400 for https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=20261017&strScrip=542652&strSearch=P&strToDate=20261116&strType=C&subcategory=-1
+filings: 228 (198 placed by rules)
+[7s] results: 14 filings
+[8s] second opinion: 34 filings
+[16s] management: 10 filings
+[16s] enrichment done
+done in 16s · 228 filings · rules 198 · llm calls 2 (cache hits 70) · tokens 2560/118 · ~$0.0003 · models {"gemini-3.5-flash-lite":2}
+telegram owner: sent 1
