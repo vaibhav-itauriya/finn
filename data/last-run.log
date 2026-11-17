@@ -2,11 +2,8 @@ screener: 18/18
 prices: 18/18
 filings: 233 (203 placed by rules)
 [5s] results: 14 filings
-[7s] second opinion: 26 filings
-[43s] management: 9 filings
-[44s] enrichment done
-done in 44s · 233 filings · rules 203 · llm calls 1 (cache hits 61) · tokens 1770/70 · ~$0.0002 · models {"gemini-3.5-flash-lite":1}
-telegram owner: sent 3
-errors (2):
-  bse BHARTIARTL: HTTP 400 for https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=20261018&strScrip=532454&strSearch=P&strToDate=20261117&strType=C&subcategory=-1
-  bse ITC: HTTP 400 for https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=20261018&strScrip=500875&strSearch=P&strToDate=20261117&strType=C&subcategory=-1
+[6s] second opinion: 34 filings
+[7s] management: 9 filings
+[7s] enrichment done
+done in 7s · 233 filings · rules 203 · llm calls 0 (cache hits 70) · tokens 0/0 · ~$0 · models {}
+telegram owner: sent 0
