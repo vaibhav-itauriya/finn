@@ -175,6 +175,11 @@
   "input": 1048576
  },
  {
+  "name": "gemini-4-neon",
+  "display": "Gemini 4 Neon",
+  "input": 1048576
+ },
+ {
   "name": "lyria-3-clip-preview",
   "display": "Lyria 3 Clip Preview",
   "input": 1048576
