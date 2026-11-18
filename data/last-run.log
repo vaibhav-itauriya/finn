@@ -1,13 +1,9 @@
 screener: 18/18
 prices: 18/18
-filings: 233 (203 placed by rules)
-[7s] results: 14 filings
-[13s] second opinion: 33 filings
-[17s] management: 6 filings
-[18s] enrichment done
-done in 18s · 233 filings · rules 203 · llm calls 0 (cache hits 64) · tokens 0/0 · ~$0 · models {}
-telegram owner: sent 0
-errors (1):
-  bse HDFCBANK: Non-JSON from https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=20261019&strScrip=500180&strSearch=P&strToDate=20261118&strType=C&subcategory=-1: 
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.
+filings: 234 (204 placed by rules)
+[5s] results: 14 filings
+[7s] second opinion: 34 filings
+[7s] management: 8 filings
+[7s] enrichment done
+done in 7s · 234 filings · rules 204 · llm calls 0 (cache hits 68) · tokens 0/0 · ~$0 · models {}
+telegram owner: sent 2
