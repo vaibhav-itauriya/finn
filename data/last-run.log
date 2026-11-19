@@ -1,28 +1,9 @@
-screener: 0/18
+screener: 18/18
 prices: 18/18
-filings: 226 (196 placed by rules)
-[77s] results: 13 filings
-[83s] second opinion: 35 filings
-[91s] management: 5 filings
-[91s] enrichment done
-done in 92s · 226 filings · rules 196 · llm calls 2 (cache hits 56) · tokens 3682/124 · ~$0.0004 · models {"gemini-3.5-flash-lite":2}
-telegram owner: sent 3
-errors (18):
-  screener HDFCBANK: 503 on https://www.screener.in/company/HDFCBANK/consolidated/
-  screener TCS: 503 on https://www.screener.in/company/TCS/consolidated/
-  screener RELIANCE: 503 on https://www.screener.in/company/RELIANCE/consolidated/
-  screener BHARTIARTL: 503 on https://www.screener.in/company/BHARTIARTL/consolidated/
-  screener LT: 503 on https://www.screener.in/company/LT/consolidated/
-  screener ITC: 503 on https://www.screener.in/company/ITC/consolidated/
-  screener MARUTI: 503 on https://www.screener.in/company/MARUTI/consolidated/
-  screener SUNPHARMA: 503 on https://www.screener.in/company/SUNPHARMA/consolidated/
-  screener BAJFINANCE: 503 on https://www.screener.in/company/BAJFINANCE/consolidated/
-  screener HAL: 503 on https://www.screener.in/company/HAL/consolidated/
-  screener ETERNAL: 503 on https://www.screener.in/company/ETERNAL/consolidated/
-  screener TRENT: 503 on https://www.screener.in/company/TRENT/consolidated/
-  screener COALINDIA: 503 on https://www.screener.in/company/COALINDIA/consolidated/
-  screener DIXON: 503 on https://www.screener.in/company/DIXON/consolidated/
-  screener POLYCAB: 503 on https://www.screener.in/company/POLYCAB/consolidated/
-  screener KPITTECH: 503 on https://www.screener.in/company/KPITTECH/consolidated/
-  screener DEEPAKNTR: 503 on https://www.screener.in/company/DEEPAKNTR/consolidated/
-  screener PERSISTENT: 503 on https://www.screener.in/company/PERSISTENT/consolidated/
+filings: 228 (198 placed by rules)
+[5s] results: 13 filings
+[6s] second opinion: 35 filings
+[7s] management: 5 filings
+[7s] enrichment done
+done in 7s · 228 filings · rules 198 · llm calls 0 (cache hits 60) · tokens 0/0 · ~$0 · models {}
+telegram owner: sent 0
