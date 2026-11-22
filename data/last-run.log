@@ -1,11 +1,9 @@
 screener: 18/18
 prices: 18/18
-filings: 214 (187 placed by rules)
-[8s] results: 12 filings
-[9s] second opinion: 30 filings
-[12s] management: 4 filings
-[12s] enrichment done
-done in 12s · 214 filings · rules 187 · llm calls 1 (cache hits 53) · tokens 758/60 · ~$0.0001 · models {"gemini-3.5-flash-lite":1}
-telegram owner: sent 1
-errors (1):
-  bse MARUTI: fetch failed
+filings: 215 (187 placed by rules)
+[5s] results: 12 filings
+[11s] second opinion: 32 filings
+[14s] management: 4 filings
+[15s] enrichment done
+done in 15s · 215 filings · rules 187 · llm calls 1 (cache hits 55) · tokens 715/64 · ~$0.0001 · models {"gemini-3.5-flash-lite":1}
+telegram owner: sent 0
