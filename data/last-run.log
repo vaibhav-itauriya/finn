@@ -3,7 +3,7 @@ prices: 18/18
 filings: 195 (168 placed by rules)
 [5s] results: 11 filings
 [6s] second opinion: 33 filings
-[6s] management: 6 filings
-[6s] enrichment done
-done in 6s · 195 filings · rules 168 · llm calls 0 (cache hits 60) · tokens 0/0 · ~$0 · models {}
-telegram owner: sent 1
+[7s] management: 6 filings
+[7s] enrichment done
+done in 7s · 195 filings · rules 168 · llm calls 0 (cache hits 60) · tokens 0/0 · ~$0 · models {}
+telegram owner: sent 0
