@@ -1,11 +1,9 @@
 screener: 18/18
 prices: 18/18
-filings: 187 (160 placed by rules)
-[7s] results: 10 filings
-[8s] second opinion: 30 filings
-[9s] management: 6 filings
-[9s] enrichment done
-done in 9s · 187 filings · rules 160 · llm calls 0 (cache hits 56) · tokens 0/0 · ~$0 · models {}
+filings: 188 (160 placed by rules)
+[5s] results: 10 filings
+[8s] second opinion: 34 filings
+[12s] management: 6 filings
+[12s] enrichment done
+done in 12s · 188 filings · rules 160 · llm calls 1 (cache hits 59) · tokens 1310/60 · ~$0.0002 · models {"gemini-3.5-flash-lite":1}
 telegram owner: sent 0
-errors (1):
-  bse MARUTI: HTTP 400 for https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=20261029&strScrip=532500&strSearch=P&strToDate=20261128&strType=C&subcategory=-1
